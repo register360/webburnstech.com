@@ -1,0 +1,425 @@
+<html><head>
+<title>WELCOME</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Bootstrap -->
+<style>
+
+@charset "utf-8";
+/* CSS Document */
+:after, :before, * {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    
+}
+*{ margin: 0; padding: 0;}
+html {
+    width: 100%;
+   
+}
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.42857143;
+    color: #333;
+    background-color: #F0FFF4;
+}
+
+ .clr1 {
+color:#F90;
+}
+.clr2 {
+color:#006600;
+}
+.clr3 {
+color:#0099CC;
+}
+.roundedborder {
+border:1px solid #F90;
+border-radius:10px;
+}
+.clrblack {
+color:#333333;
+font-weight:bold;
+font-size:20px;
+}
+.roundedborderhome {
+border:1px solid #ccc;
+border-radius:10px;
+}
+.subhead {
+font-size:24px;
+color:#FFFFFF;
+}
+
+.subsubhead {
+font-size:18px;
+color: #F90;
+font-weight:bold;
+}
+
+.subsubsubhead {
+font-size:15px;
+color:#666;
+font-weight:bold;
+}
+
+
+.bgsubhead {
+background-color:#09C;
+padding:10px;
+}
+
+.clrhead1{ background-color:#D9534F; color:#fff; font-weight:bold; padding:3px;}
+.clrhead2{ background-color:#337AB7;color:#fff; font-weight:bold; padding:3px;}
+.clrhead3{ background-color:#F0AD4E;color:#fff; font-weight:bold; padding:3px;}
+.clrhead4{ background-color:#5CB85C;color:#fff; font-weight:bold; padding:3px;}
+.clrhead5{ background-color:#337AB7;color:#fff; font-weight:bold; padding:3px;}
+.clrhead6{ background-color:#999999;color:#fff; font-weight:bold; padding:3px;}
+
+
+select { padding:10px;}
+
+.nopad{padding:0 !important;}
+
+.tdHead {
+color:#337ab7;
+background-color:#fff;
+margin-right:5px;
+}
+.tdHead {
+float:right
+}
+.tdHead{
+margin-right:5px
+}
+.tdHeadLabel
+{
+color:#fff;
+background-color:#337ab7;
+border-color:#337ab7;
+padding:10px 15px;
+border:1px solid #ddd
+}
+td{
+color:#31708f;
+/* background-color:#d9edf7;
+border-color:#bce8f1;
+border:1px solid silver;*/
+font-weight: bold;
+}
+.tdLabel
+{
+background-color:#fff;
+border-color:#337ab7;
+
+padding:10px 15px;
+margin-bottom:-1px;
+border:1px solid #ddd
+}
+/*
+body { background-color:#eaeaea;}*/
+
+ .bdybgclr { background-color:#eaeaea;}
+
+
+.container {
+width:100%;
+height:100%;
+max-width:1170px;
+background-color: white;
+margin: 0 auto;
+/*min-height: calc( 100vh - 368px);*/
+}
+
+.roundedborder1 {
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 5px;
+}
+.panel.panel-primary {
+    background: transparent;
+    margin-bottom: 0;
+}
+
+
+.panel {
+    margin-bottom: 20px;
+    background-color: #fff;
+    border: 1px solid transparent;
+    border-radius: 0;
+    -webkit-box-shadow: 0 1px 1px rgba(0,0,0,.05);
+    box-shadow: 0 1px 1px rgba(0,0,0,.05);
+}
+.panel-primary>.panel-heading {
+    color: #fff;
+    background-color: #337ab7;
+    border-color: #337ab7;
+}
+.panel-body {
+    padding: 15px;
+}
+
+.panel-title {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 16px;
+    color: inherit;
+}
+.panel-heading {
+    padding: 10px 15px;
+    border-bottom: 1px solid transparent;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+
+table {
+    background-color: transparent;
+}
+table {
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+
+
+.col-lg-6 {
+    width: 49%;
+}
+.content{
+	/* width: 700px;
+	height: 300px;
+	margin: 50px auto;
+	
+	display: flex;
+	flex-direction: row; */
+	
+}
+.box {
+	width:300px;
+	height: 100px;
+	text-align: center;
+	line-height: 100px;
+	background: grey;
+}
+.box.left{
+	background: #915b42;;
+}
+.box.right{
+	background: #326a5e;
+}
+.panel.panel-primary {
+   background: transparent;
+   margin-bottom: 0;
+}
+.panel.panel-primary ul {
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-evenly;
+}
+.panel.panel-primary ul li {
+    padding: 0;
+    list-style: none;
+    width: 100px;
+    height: 100px;
+    display: flex;
+    text-align: center;
+    border: 1px solid white;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+.panel.panel-primary ul li a {
+    color: white;
+    display: block;    
+}
+.panel.panel-primary ul li:hover{
+	/* border: 1px solid #134467; */
+	background: white;
+	transition: .1s all ease-in-out;
+}
+.panel.panel-primary ul li:hover a{
+	text-decoration: none;
+	
+	color: #134467;	
+	transition: .1s all ease-in-out;
+}
+.panel.panel-primary ul li a:before {
+    content: "";
+    height: 100%;
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+a.list-group-item {
+    color: #fff;
+}
+.list-group-item {
+    position: relative;
+    display: block;
+    padding: 10px 15px;
+    margin-bottom: -1px;
+    background-color: #fff0;
+    border: 1px solid #337ab7;
+}
+</style>
+<meta charset="utf-8">
+<style type="text/css">
+@font-face {
+  font-weight: 400;
+  font-style:  normal;
+  font-family: circular;
+
+  src: url('chrome-extension://liecbddmkiiihnedobmlmillhodjkdmb/fonts/CircularXXWeb-Book.woff2') format('woff2');
+}
+
+@font-face {
+  font-weight: 700;
+  font-style:  normal;
+  font-family: circular;
+
+  src: url('chrome-extension://liecbddmkiiihnedobmlmillhodjkdmb/fonts/CircularXXWeb-Bold.woff2') format('woff2');
+}</style></head>
+<body><form name="HomeForm" method="post" action="/welcome.do">
+	
+		<div class="container roundedborder1 bgclr">
+		<div class="row">
+				<div class="col-xs-12 img-responsive">
+					
+						<center><h3 class="go mt-2 mb-3">Telangana Board of Intermediate Education</h3></center>
+						<br>
+						<center><h3 class="go mt-2 mb-3">Government of Telangana</h3></center>
+				</div>
+			</div>
+			<br>
+			<div class="content">
+			<div class="container" style="height: 200px;vertical-align: middle;margin-bottom: 100px;">
+			
+			<table style="font-family: 'Arial Regular'; letter-spacing: normal; orphans: auto;  
+			text-indent: 0px; text-transform: none; widows: auto; word-spacing: 0px;-webkit-text-stroke-width: 0px;margin:  12px; width: 1133px">
+						<tbody>
+							<tr align="center" style="width: 100%">
+								<td style="background: #326a5e; padding-top: 20px; padding-bottom: 25px;" colspan="2" width="50%&quot;" align="center" height="50%"><a href="https://tgbie.cgg.gov.in:443/home.do" target="_blank"> <font style="font-size: 20px; text-align: center; color: #fff;"><b>TGBIE Website</b></font><b>
+									</b></a><b> </b>
+									</td>
+							
+								<td width="2%">&nbsp;</td>
+							 
+								<td style="background:#134467; padding-top: 20px; padding-bottom: 25px;" width="30%" align="center" height="50%" valign="top">
+						
+								 <div class="panel panel-primary">
+									<div class="panel-heading" style="background-color: #85a2bb00;">
+									<h3 class="panel-title"><b>IPE/IPASE Mark's Memos</b><br>
+									</h3>
+									</div>
+								<!-- <div class="panel-body" class="panel-title">
+										<div class="list-group text-left" style="margin-bottom:0;">
+										   <a class="list-group-item" href="https://results.cgg.gov.in/ResultMemorandum.do"  target="_blank"> <font color="white">Results 111111111111111111111111</font></a>
+										 
+										</div>
+								</div> -->
+								
+								<div class="panel-body">
+										<div class="list-group text-left" style="margin-bottom:0;">
+										    <a class="list-group-item" href="C:\Users\vinay\OneDrive\Desktop\html files\marks_table.html" target="_blank"> <font color="white">Results</font></a> 
+										   <!-- <a class="list-group-item" href="https://results.cgg.gov.in/"  target="_blank"> <font color="white">Results</font></a> -->
+										 
+										</div>
+								</div>
+								</div>
+							</td>
+							</tr>
+							<tr>
+								<td width="3%" colspan="4">&nbsp;</td>
+							</tr>
+							<tr>
+							
+							
+							<td style="background:#134467; padding-top: 0px; padding-bottom: 0px;display:;" width="20%" align="center" valign="top" colspan="2">
+						
+								  <div class="panel panel-primary">
+									<div class="panel-heading" style="background-color: #85a2bb00;">
+									<h3 class="panel-title"><b>DOWNLOAD HALL TICKETS IPE MARCH 2025</b><br>
+									</h3>
+									</div>
+								
+										<div class="list-group text-left" style="margin-bottom:0;">
+										    <a class="list-group-item" href="https://tgbie.cgg.gov.in:443/ENVETHENGHallTickets.do" target="_blank"> <font color="white">ENV ETH ENG HALL TICKETS</font></a> 
+										</div>
+										<div class="list-group text-left" style="margin-bottom:0;">
+										    <a class="list-group-item" href="https://tgbie.cgg.gov.in:443/BiePracticalHallTickets.do" target="_blank"> <font color="white">PRACTICAL HALL TICKETS</font></a> 
+										</div>
+								
+								</div>
+								</td>  
+								
+							</tr> 
+							 
+							<tr>
+								<td width="3%" colspan="4">&nbsp;</td>
+							</tr>
+							
+							
+							
+						</tbody>
+					</table>
+			</div>
+			
+			<div class="row">
+				<br>
+			<!-- 	<div class="row">
+					<div align="center" class="col-xs-12" style=" width: 100%;align:center;">
+						
+							<p><b> <a href="https://tgbie.cgg.gov.in/secondYearStudentCheckListForEamcet.do"  target="_blank">CLICK HERE TO KNOW YOUR INTER SECOND YEAR HALLTICKET NO.</a></b></p>
+								<p></p>
+					
+					</div>
+				</div> -->
+			<br><br>
+			<!-- <div class="row">
+					<div align="center" class="col-xs-12" style=" width: 100%;align:center;">
+						
+							<p><b> Note: If any student is unable to download the memo, please contact TGBIE Help Desk @ 040-24600110 or raise the grievance in <a href="https://bigrs.telangana.gov.in/" target="_blank">http://bigrs.telangana.gov.in</a></b></p>
+								<p></p>
+					
+					</div>
+				</div> -->
+				<div>
+				<br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+				</div>
+				
+				<br><br>
+			<div class="row">
+					<div align="center" class="col-xs-12" style=" width: 100%;align:center;">
+						
+							<p><b><font color="red" size="4">Note: The content is best viewed in Chrome browser</font></b></p>
+								<p></p>
+					</div>
+				</div>
+			<br><br><br><br><br><br><br><br></div>
+			<div class="row">
+				<br><br>
+				<div class="row">
+					<div align="center" class="col-xs-12" style=" width: 100%;align:center;">
+						<footer>
+							<p><b>© Designed and Developed by Centre for Good Governance</b></p>
+								<p></p>
+						</footer>
+					</div>
+				</div>
+</div>			
+	
+
+
+
+  
+
+
+
+
+
+
+
+</div></div></form><div id="loom-companion-mv3" ext-id="liecbddmkiiihnedobmlmillhodjkdmb"><section id="shadow-host-companion"></section></div></body></html>

@@ -1,0 +1,83 @@
+<doctype html!>
+<html>
+<title>
+www.friends.com             
+</title>
+<head>
+</head>
+<body>
+<style>
+body
+{
+background: linear-gradient(450deg,hsl(102,100%,61%),hsl(240,100%,63%));
+}
+p
+{
+text-decoration: dotted;
+}
+h1
+{
+text-align:center;
+}
+h3
+{
+text-align:center;
+}
+h4
+{
+height:24px;
+width: 193px;
+animation: changeBackground 1s infinite;
+}
+form
+{
+background-color:hsl(170,100%,61%);
+padding:10px 20px 30px 40px;
+border-radius: 40px;
+box-shadow: 0 5px 15px;
+width: 350px;
+}
+button
+{
+background-color:hsl(318, 93%, 49%);
+cursor: pointer;
+border: none;
+border-radius: 40px;
+}
+button:hover
+{
+background-color:hsl(200, 96%, 51%);
+transition-duration:0.7s;
+}
+@keyframes changeBackground {
+  0% {
+    background: linear-gradient(270deg,hsl(286, 97%, 49%),hsl(166, 86%, 60%));
+  }
+
+  100% {
+    background: linear-gradient(420deg,hsl(316, 86%, 49%),hsl(228, 94%, 48%));
+  }
+}
+</style>
+<h1>FRIENDS & CO</h1>
+<h2>For Making Friends World Wide</h2>
+<h3>Make friends Now:</h3>
+<h4>Register Here:</h4>
+<p>Friends Are Most Important Part Of Life.</p>
+<form action="" method="post" target="_top">
+Name <input type="text" placeholder="Enter Name"><br><br>
+Age <input type="number" placeholder="Enter Age"><br><br>
+Place of living <input type="text" placeholder="Enter place"><br><br>
+Select continet <select>
+<option>Asia</option>
+<option>America</option>
+<option>Euroupe</option>
+<option>Africa</option>
+<option>Australia</option>
+</select><br><br>
+<button type="submit" value="submit">Submit</button>
+</form>
+
+</body>
+
+</html>

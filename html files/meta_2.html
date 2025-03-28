@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Login Form</title>
+</head>
+<body>
+	<div class="login-form">
+		<h2>Login</h2>
+		<form id="login-form">
+			<label for="username">Username:</label>
+			<input type="text" id="username" name="username"><br><br>
+			<label for="password">Password:</label>
+			<input type="password" id="password" name="password"><br><br>
+			<button id="submit-btn">Login</button>
+			<p id="error-msg"></p>
+		</form>
+	</div>
+<style>
+.login-form 
+{
+	width: 300px;
+	margin: 50px auto;
+	padding: 40px;
+	border: 3px solid hsl(0, 95%, 50%);
+	border-radius: 50px;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+	color:hsl(54, 95%, 56%) ;
+	background-color: hsl(267, 81%, 52%);
+}
+
+.login-form h2 {
+	text-align: center;
+	margin-bottom: 20px;
+	color: hsl(267, 81%, 52%);
+}
+
+.login-form label {
+	display: block;
+	margin-bottom: 10px;
+}
+
+.login-form input[type="text"], .login-form input[type="password"] {
+	width: 100%;
+	height: 40px;
+	margin-bottom: 20px;
+	padding: 10px;
+	border: 1px solid;
+}
+
+.login-form button
+{
+	width: 100%;
+	height: 40px;
+	background-color: hsl(127, 93%, 50%);
+	color: hsl(0, 0%, 0%);
+	padding: 10px;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	text-align: center;
+}
+
+.login-form button:hover {
+	background-color: hsl(190, 90%, 49%);
+} 
+
+#error-msg {
+	background-color: hsl(54, 93%, 57%);
+	color: hsl(0, 92%, 49%);
+	margin-top: 10px;
+}
+</style>
+<script>
+document.getElementById("submit-btn").addEventListener("click",function(event) {
+	event.preventDefault();
+
+	let username = document.getElementById("username").value;
+	let password = document.getElementById("password").value;
+
+	if (username.length !== 12) {
+		document.getElementById("error-msg").innerText = "Username must be exactly 12 characters long.";
+	} else if (password !== "password123") {
+		document.getElementById("error-msg").innerText = "Invalid password.";
+	} else {
+		document.getElementById("error-msg").innerText = "Login successful!";
+		// Login successful, redirect to another page or perform some action
+		console.log("Login successful!");
+	}
+});
+</script>
+</body>
+</html>
