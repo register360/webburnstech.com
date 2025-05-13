@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <marquee behavior="scroll" direction="left" onmouseover="this.stop();" onmouseout="this.start();"><h4 class="text-danger m-0">
+        <strong>All Applicants Are Hereby Requested To Check their Applications.</strong>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <strong>In Case Of Any Errors Contact us Immediately.</strong>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    </h4></marquee>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>www.indiangov.org</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: url('https://t4.ftcdn.net/jpg/09/77/05/45/360_F_977054565_dpFgDXGR0wMVNn4vyfMwnT3imsN0Tsgk.jpg') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: -1;
+        }
+
+        h1, h2, h3 {
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            margin: 0.5rem 0;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            font-weight: normal;
+            font-size: 1.5rem;
+        }
+
+        h3 {
+            font-weight: normal;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        marquee {
+            background-color: white;
+            color: red;
+            width: 100%;
+        }
+
+        .form-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            width: 90%;
+            max-width: 1100px;
+            margin: 20px auto;
+        }
+
+        #submit-form {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 15px;
+            padding: 2rem;
+            flex: 1;
+            min-width: 300px;
+            max-width: 500px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        #preview-section {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 15px;
+            padding: 2rem;
+            flex: 1;
+            min-width: 300px;
+            max-width: 500px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: none;
+        }
+
+        label {
+            display: block;
+            margin: 1.2rem 0 0.5rem;
+            text-align: left;
+            font-weight: bold;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        #submit-button {
+            background: linear-gradient(to right, #4b6cb7, #182848);
+            color: white;
+            border: none;
+            padding: 1rem;
+            margin-top: 2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(to right, #5a7ac7, #283a58);
+        }
+
+        #file {
+            padding: 0.5rem;
+            background: transparent;
+        }
+
+        #data-table {
+            width: 100%;
+            color: white;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        #data-table th, #data-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        #data-table th {
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        #photo-preview {
+            text-align: center;
+        }
+
+        #photo-preview p {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border: 2px solid white;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            font-size: 0.8rem;
+            margin-top: 0.2rem;
+            display: none;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            h2 {
+                font-size: 1.2rem;
+            }
+            .form-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            #submit-form, #preview-section {
+                width: 90%;
+                padding: 1.5rem;
+            }
+            #preview-section {
+                margin-top: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+            #submit-form, #preview-section {
+                padding: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body id="bd">
+    <h1>Application Form</h1>
+    <h2><b>CODE HUB</b></h2>
+    <h2>Govt.Telangana Hyd 500059</h2>
+    
+    <div class="form-container">
+        <form id="submit-form" onsubmit="return validateForm()">
+            <label for="name">Name</label>
+            <input id="name" type="text" required minlength="3" placeholder="Enter your full name">
+            <div id="name-error" class="error-message"></div>
+            
+            <label for="phone">Phone Number</label>
+            <input id="phone" type="text" required pattern="[0-9]{10}" minlength="10" maxlength="10" placeholder="Enter 10-digit phone number">
+            <div id="phone-error" class="error-message"></div>
+            
+            <label for="ap">Application No.</label>
+            <input id="ap" type="text" required minlength="12" maxlength="12" pattern="[A-Za-z0-9]{12}" placeholder="Enter 12-digit Application number">
+            <div id="ap-error" class="error-message"></div>
+            
+            <label for="dob">Date of Birth</label>
+            <input id="dob" type="date" required>
+            <div id="dob-error" class="error-message"></div>
+            
+            <label for="file">Upload Aadhaar (JPG, PNG, PDF)</label>
+            <input id="file" type="file" required accept=".jpg,.jpeg,.png,.pdf">
+            <div id="file-error" class="error-message"></div>
+            
+            <label for="agree" style="display: flex; align-items: center;">
+                <input type="checkbox" id="agree" name="terms" required style="width: auto; margin-right: 10px;">
+                I agree to the terms and conditions
+            </label>
+            <div id="agree-error" class="error-message"></div>
+            
+            <button id="submit-button" type="submit">Submit</button>
+        </form>
+
+        <div id="preview-section">
+            <h3 style="margin-top: 0; text-align: center;">Application Preview</h3>
+            <table id="data-table">
+                <tr>
+                    <th>Field</th>
+                    <th>Value</th>
+                </tr>
+                <!-- Rows will be added by JavaScript -->
+            </table>
+            <div id="photo-preview">
+                <p>Aadhaar Preview</p>
+                <img id="preview-image" alt="No image uploaded"/>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Form validation and preview functions
+        function validateForm() {
+            // Clear previous errors
+            document.querySelectorAll('.error-message').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            let isValid = true;
+
+            // Validate Name
+            const name = document.getElementById('name').value.trim();
+            if (name.length < 3) {
+                showError('name-error', 'Name must be at least 3 characters');
+                isValid = false;
+            }
+
+            // Validate Phone
+            const phone = document.getElementById('phone').value.trim();
+            if (!/^\d{10}$/.test(phone)) {
+                showError('phone-error', 'Please enter a valid 10-digit phone number');
+                isValid = false;
+            }
+
+            // Validate Application Number
+            const appNo = document.getElementById('ap').value.trim();
+            if (!/^[A-Za-z0-9]{12}$/.test(appNo)) {
+                showError('ap-error', 'Application number must be 12 alphanumeric characters');
+                isValid = false;
+            }
+
+            // Validate Date of Birth
+            const dobInput = document.getElementById('dob').value;
+            const dob = new Date(dobInput);
+            const today = new Date();
+            
+            if (!dobInput) {
+                showError('dob-error', 'Please enter your date of birth');
+                isValid = false;
+            } else if (isNaN(dob.getTime())) {
+                showError('dob-error', 'Please enter a valid date');
+                isValid = false;
+            } else if (dob > today) {
+                showError('dob-error', 'Date of birth cannot be in the future');
+                isValid = false;
+            } else {
+                const minAgeDate = new Date();
+                minAgeDate.setFullYear(minAgeDate.getFullYear() - 18);
+                if (dob > minAgeDate) {
+                    showError('dob-error', 'You must be at least 18 years old');
+                    isValid = false;
+                }
+            }
+
+            // Validate File
+            const fileInput = document.getElementById('file');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showError('file-error', 'Please upload your Aadhaar document');
+                isValid = false;
+            } else {
+                const file = fileInput.files[0];
+                const validTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+                if (!validTypes.includes(file.type)) {
+                    showError('file-error', 'Please upload JPG, PNG or PDF file');
+                    isValid = false;
+                }
+            }
+
+            // Validate Terms Checkbox
+            if (!document.getElementById('agree').checked) {
+                showError('agree-error', 'You must agree to the terms and conditions');
+                isValid = false;
+            }
+
+            // If valid, save data and show preview
+            if (isValid) {
+                saveFormData();
+                displayPreview();
+            }
+
+            return isValid;
+        }
+
+        function showError(id, message) {
+            const errorElement = document.getElementById(id);
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function saveFormData() {
+            const formData = {
+                name: document.getElementById('name').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                applicationNo: document.getElementById('ap').value.trim(),
+                dob: document.getElementById('dob').value,
+                file: document.getElementById('file').files[0]?.name || null
+            };
+            
+            localStorage.setItem('applicationFormData', JSON.stringify(formData));
+            
+            // Save file as data URL if image
+            const fileInput = document.getElementById('file');
+            if (fileInput.files && fileInput.files[0] && fileInput.files[0].type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    localStorage.setItem('aadhaarImage', e.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                localStorage.removeItem('aadhaarImage');
+            }
+        }
+
+        function displayPreview() {
+            const previewSection = document.getElementById('preview-section');
+            const dataTable = document.getElementById('data-table');
+            const previewImage = document.getElementById('preview-image');
+            
+            // Clear existing rows (except header)
+            while (dataTable.rows.length > 1) {
+                dataTable.deleteRow(1);
+            }
+            
+            // Get saved data
+            const savedData = JSON.parse(localStorage.getItem('applicationFormData') || {});
+            const savedImage = localStorage.getItem('aadhaarImage');
+            
+            // Add rows for each field
+            addTableRow(dataTable, 'Full Name', savedData.name || 'Not provided');
+            addTableRow(dataTable, 'Phone Number', savedData.phone || 'Not provided');
+            addTableRow(dataTable, 'Application No.', savedData.applicationNo || 'Not provided');
+            addTableRow(dataTable, 'Date of Birth', savedData.dob || 'Not provided');
+            
+            // Display image if available
+            if (savedImage) {
+                previewImage.src = savedImage;
+                previewImage.alt = 'Aadhaar preview';
+            } else {
+                previewImage.src = '';
+                previewImage.alt = 'No image uploaded';
+            }
+            
+            // Show the preview section
+            previewSection.style.display = 'block';
+        }
+
+        function addTableRow(table, fieldName, value) {
+            const row = table.insertRow();
+            const cell1 = row.insertCell(0);
+            const cell2 = row.insertCell(1);
+            
+            cell1.textContent = fieldName;
+            cell2.textContent = value;
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load saved data if available
+            if (localStorage.getItem('applicationFormData')) {
+                displayPreview();
+            }
+            
+            // Real-time file preview
+            document.getElementById('file').addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0] && e.target.files[0].type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        document.getElementById('preview-image').src = event.target.result;
+                    };
+                    reader.readAsDataURL(e.target.files[0]);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
