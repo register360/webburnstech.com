@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Development Services | Webburns Tech</title>
+    <link rel="stylesheet" href="videos/base.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .service-hero {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+        }
+        .service-container {
+            max-width: 1200px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+        .tech-item {
+            background: var(--lighter-color);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+        }
+        .tech-item:hover {
+            transform: translateY(-5px);
+        }
+        .tech-item i {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+        .process-steps {
+            counter-reset: step;
+        }
+        .process-step {
+            position: relative;
+            padding-left: 80px;
+            margin-bottom: 40px;
+        }
+        .process-step::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 60px;
+            height: 60px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .pricing-plans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 60px 0;
+        }
+        .pricing-card {
+            background: var(--lighter-color);
+            border-radius: 10px;
+            padding: 40px 30px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+        .pricing-card.popular::after {
+            content: "Popular";
+            position: absolute;
+            top: 15px;
+            right: -30px;
+            background: var(--secondary-color);
+            color: white;
+            padding: 5px 30px;
+            transform: rotate(45deg);
+            font-size: 0.8rem;
+        }
+        .pricing-card h3 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+        .price {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 20px 0;
+            color: var(--primary-color);
+        }
+        .price span {
+            font-size: 1rem;
+            color: var(--text-color);
+        }
+        .features-list {
+            margin: 30px 0;
+        }
+        .features-list li {
+            margin-bottom: 10px;
+            position: relative;
+            padding-left: 25px;
+        }
+        .features-list li::before {
+            content: "\f00c";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation (Same as main site) -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="webburns_tech.html" class="logo">Webburns<span>Tech</span></a>
+            <div class="nav-links">
+                <a href="webburns_tech.html#home">Home</a>
+                <a href="webburns_tech.html#about">About</a>
+                <a href="webburns_tech.html#services">Services</a>
+                <a href="webburns_tech.html#portfolio">Portfolio</a>
+                <a href="webburns_tech.html#contact">Contact</a>
+            </div>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Service Hero Section -->
+    <section class="service-hero">
+        <div class="container">
+            <h1>Web Development Services</h1>
+            <p class="hero-subtitle">Building high-performance, scalable web applications tailored to your business needs</p>
+        </div>
+    </section>
+
+    <!-- Service Details -->
+    <div class="service-container">
+        <section>
+            <h2>Custom Web Solutions</h2>
+            <p>We create bespoke web applications that drive business growth. Our full-stack development approach ensures seamless functionality from front-end to back-end.</p>
+            
+            <div class="tech-stack">
+                <div class="tech-item">
+                    <i class="fab fa-react"></i>
+                    <h4>React</h4>
+                </div>
+                <div class="tech-item">
+                    <i class="fab fa-vuejs"></i>
+                    <h4>Vue.js</h4>
+                </div>
+                <div class="tech-item">
+                    <i class="fab fa-angular"></i>
+                    <h4>Angular</h4>
+                </div>
+                <div class="tech-item">
+                    <i class="fab fa-node-js"></i>
+                    <h4>Node.js</h4>
+                </div>
+                <div class="tech-item">
+                    <i class="fas fa-database"></i>
+                    <h4>MongoDB</h4>
+                </div>
+                <div class="tech-item">
+                    <i class="fas fa-server"></i>
+                    <h4>PostgreSQL</h4>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Our Development Process</h2>
+            <div class="process-steps">
+                <div class="process-step">
+                    <h3>Discovery & Planning</h3>
+                    <p>We analyze your requirements and create a detailed project roadmap with milestones and deliverables.</p>
+                </div>
+                <div class="process-step">
+                    <h3>UI/UX Design</h3>
+                    <p>Our designers create wireframes and prototypes to visualize the user experience before development begins.</p>
+                </div>
+                <div class="process-step">
+                    <h3>Development</h3>
+                    <p>Agile development process with weekly sprints, continuous integration, and regular client updates.</p>
+                </div>
+                <div class="process-step">
+                    <h3>Testing & QA</h3>
+                    <p>Rigorous testing including unit tests, integration tests, and user acceptance testing.</p>
+                </div>
+                <div class="process-step">
+                    <h3>Deployment & Maintenance</h3>
+                    <p>Seamless deployment with ongoing support and maintenance packages available.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Pricing Plans</h2>
+            <div class="pricing-plans">
+                <div class="pricing-card">
+                    <h3>Basic Website</h3>
+                    <div class="price">$1,499<span> one-time</span></div>
+                    <ul class="features-list">
+                        <li>Up to 5 pages</li>
+                        <li>Responsive Design</li>
+                        <li>Basic SEO Setup</li>
+                        <li>Contact Form</li>
+                        <li>1 Month Support</li>
+                    </ul>
+                    <a href="webburns_tech.html#contact" class="btn btn-primary">Get Started</a>
+                </div>
+                <div class="pricing-card popular">
+                    <h3>Web Application</h3>
+                    <div class="price">$9,999<span>+</span></div>
+                    <ul class="features-list">
+                        <li>Custom Web Application</li>
+                        <li>User Authentication</li>
+                        <li>Database Integration</li>
+                        <li>API Development</li>
+                        <li>3 Months Support</li>
+                    </ul>
+                    <a href="webburns_tech.html#contact" class="btn btn-primary">Get Started</a>
+                </div>
+                <div class="pricing-card">
+                    <h3>Enterprise Solution</h3>
+                    <div class="price">Custom</div>
+                    <ul class="features-list">
+                        <li>Scalable Architecture</li>
+                        <li>Microservices</li>
+                        <li>Cloud Deployment</li>
+                        <li>Dedicated Team</li>
+                        <li>Ongoing Maintenance</li>
+                    </ul>
+                    <a href="webburns_tech.html#contact" class="btn btn-primary">Contact Us</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <h2>Ready to Build Your Web Solution?</h2>
+            <p>Contact us today for a free consultation and project estimate.</p><br>
+            <a href="webburns_tech.html#contact" class="btn btn-primary">Get a Free Quote</a>
+        </section>
+    </div>
+
+    <!-- Footer (Same as main site) -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <!-- Footer content from webburns_tech.html -->
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2023 Webburns Tech. All Rights Reserved.</p>
+                <div class="legal-links">
+                    <a href="privacy-policy.html">Privacy Policy</a>
+                    <a href="terms-of-service.html">Terms of Service</a>
+                    <a href="cookies-policy.html">Cookies Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="videos/base.js"></script>
+    <script>
+        // Interactive tech stack animation
+        document.querySelectorAll('.tech-item').forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.querySelector('i').style.transform = 'scale(1.2)';
+            });
+            item.addEventListener('mouseleave', function() {
+                this.querySelector('i').style.transform = 'scale(1)';
+            });
+        });
+
+        // Pricing plan hover effects
+        document.querySelectorAll('.pricing-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-10px)';
+            });
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Development Services | Webburns Tech</title>
+    <link rel="stylesheet" href="videos/base.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .mobile-hero {
+            background: linear-gradient(135deg, #6c63ff 0%, #00d4ff 100%);
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .mobile-hero::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('images/mobile-pattern.png') center/cover;
+            opacity: 0.1;
+        }
+        .platform-tabs {
+            display: flex;
+            justify-content: center;
+            margin: 40px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .platform-tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: var(--transition);
+        }
+        .platform-tab.active {
+            border-bottom: 3px solid var(--primary-color);
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+        .platform-content {
+            display: none;
+        }
+        .platform-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        .app-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 60px 0;
+        }
+        .app-feature {
+            background: var(--lighter-color);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+        .app-feature:hover {
+            transform: translateY(-10px);
+        }
+        .app-feature i {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation (Same as main site) -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="webburns_tech.html" class="logo">Webburns<span>Tech</span></a>
+            <div class="nav-links">
+                <a href="webburns_tech.html#home">Home</a>
+                <a href="webburns_tech.html#about">About</a>
+                <a href="webburns_tech.html#services">Services</a>
+                <a href="webburns_tech.html#portfolio">Portfolio</a>
+                <a href="webburns_tech.html#contact">Contact</a>
+            </div>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Service Hero Section -->
+    <section class="mobile-hero">
+        <div class="container">
+            <h1>Mobile Development Services</h1>
+            <p class="hero-subtitle">Building high-performance mobile apps for iOS, Android, and cross-platform solutions</p>
+        </div>
+    </section>
+
+    <!-- Service Details -->
+    <div class="service-container">
+        <section>
+            <h2>Our Mobile Development Expertise</h2>
+            <div class="platform-tabs">
+                <div class="platform-tab active" data-tab="cross-platform">Cross-Platform</div>
+                <div class="platform-tab" data-tab="ios">iOS</div>
+                <div class="platform-tab" data-tab="android">Android</div>
+            </div>
+
+            <div class="platform-content active" id="cross-platform">
+                <h3>Cross-Platform Development</h3>
+                <p>Build once, deploy everywhere. Our cross-platform solutions save time and money while delivering native-like performance.</p>
+                <div class="tech-stack">
+                    <div class="tech-item">
+                        <i class="fab fa-react"></i>
+                        <h4>React Native</h4>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fas fa-mobile-alt"></i>
+                        <h4>Flutter</h4>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fab fa-js"></i>
+                        <h4>Ionic</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="platform-content" id="ios">
+                <h3>iOS Development</h3>
+                <p>Premium native iOS apps built with Swift and SwiftUI, optimized for all Apple devices.</p>
+                <div class="tech-stack">
+                    <div class="tech-item">
+                        <i class="fab fa-apple"></i>
+                        <h4>Swift</h4>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fas fa-mobile"></i>
+                        <h4>SwiftUI</h4>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fas fa-lock"></i>
+                        <h4>ARKit</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="platform-content" id="android">
+                <h3>Android Development</h3>
+                <p>High-performance Android apps using Kotlin and Jetpack Compose, compatible with all Android devices.</p>
+                <div class="tech-stack">
+                    <div class="tech-item">
+                        <i class="fab fa-android"></i>
+                        <h4>Kotlin</h4>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fas fa-paint-brush"></i>
+                        <h4>Jetpack</h4>
+                    </div>
+                    <div class="tech-item">
+                        <i class="fas fa-fire"></i>
+                        <h4>Firebase</h4>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Key App Features We Develop</h2>
+            <div class="app-showcase">
+                <div class="app-feature">
+                    <i class="fas fa-user-lock"></i>
+                    <h3>Secure Authentication</h3>
+                    <p>Biometric login, OAuth, and custom authentication flows</p>
+                </div>
+                <div class="app-feature">
+                    <i class="fas fa-shopping-cart"></i>
+                    <h3>E-Commerce</h3>
+                    <p>In-app purchases, payment gateways, and cart systems</p>
+                </div>
+                <div class="app-feature">
+                    <i class="fas fa-map-marked-alt"></i>
+                    <h3>Location Services</h3>
+                    <p>GPS tracking, geofencing, and maps integration</p>
+                </div>
+                <div class="app-feature">
+                    <i class="fas fa-comments"></i>
+                    <h3>Real-time Chat</h3>
+                    <p>Instant messaging with push notifications</p>
+                </div>
+                <div class="app-feature">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>Analytics</h3>
+                    <p>User behavior tracking and performance metrics</p>
+                </div>
+                <div class="app-feature">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h3>Cloud Sync</h3>
+                    <p>Offline-first apps with cloud synchronization</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <h2>Have a Mobile App Idea?</h2>
+            <p>Let's turn your vision into a successful mobile application.</p><br>
+            <a href="webburns_tech.html#contact" class="btn btn-primary">Start Your Project</a>
+        </section>
+    </div><br><br>
+
+    <!-- Footer (Same as main site) -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <!-- Footer content from webburns_tech.html -->
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2023 Webburns Tech. All Rights Reserved.</p>
+                <div class="legal-links">
+                    <a href="privacy-policy.html">Privacy Policy</a>
+                    <a href="terms-of-service.html">Terms of Service</a>
+                    <a href="cookies-policy.html">Cookies Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="videos/base.js"></script>
+    <script>
+        // Platform tab switching
+        document.querySelectorAll('.platform-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs and contents
+                document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.platform-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                this.classList.add('active');
+                
+                // Show corresponding content
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // Animate app features on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.app-feature').forEach(feature => {
+            feature.style.opacity = '0';
+            feature.style.transform = 'translateY(20px)';
+            feature.style.transition = 'all 0.5s ease';
+            observer.observe(feature);
+        });
+    </script>
+</body>
+</html>

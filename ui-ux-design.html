@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI/UX Design Services | Webburns Tech</title>
+    <link rel="stylesheet" href="videos/base.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .design-hero {
+            background: linear-gradient(135deg, #6c63ff 0%, #ff6b6b 100%);
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+        }
+        .design-process {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 60px 0;
+            position: relative;
+        }
+        .process-line {
+            position: absolute;
+            height: 3px;
+            background: var(--primary-color);
+            top: 50px;
+            left: 10%;
+            right: 10%;
+            z-index: 1;
+        }
+        .process-item {
+            width: 200px;
+            text-align: center;
+            margin: 0 20px;
+            position: relative;
+            z-index: 2;
+        }
+        .process-circle {
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 3px solid var(--primary-color);
+        }
+        .process-circle i {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+        }
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 60px 0;
+        }
+        .portfolio-item {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 250px;
+            box-shadow: var(--shadow);
+        }
+        .portfolio-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: var(--transition);
+        }
+        .portfolio-item:hover img {
+            transform: scale(1.1);
+        }
+        .portfolio-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(108, 99, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: var(--transition);
+            color: white;
+        }
+        .portfolio-item:hover .portfolio-overlay {
+            opacity: 1;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: var(--dark-color);
+            color: white;
+            text-align: center;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation (Same as main site) -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="webburns_tech.html" class="logo">Webburns<span>Tech</span></a>
+            <div class="nav-links">
+                <a href="webburns_tech.html#home">Home</a>
+                <a href="webburns_tech.html#about">About</a>
+                <a href="webburns_tech.html#services">Services</a>
+                <a href="webburns_tech.html#portfolio">Portfolio</a>
+                <a href="webburns_tech.html#contact">Contact</a>
+            </div>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Service Hero Section -->
+    <section class="design-hero">
+        <div class="container">
+            <h1>UI/UX Design Services</h1>
+            <p class="hero-subtitle">Creating intuitive, beautiful digital experiences that users love</p>
+        </div>
+    </section>
+
+    <!-- Service Details -->
+    <div class="service-container">
+        <section>
+            <h2>Our Design Process</h2>
+            <div class="design-process">
+                <div class="process-line"></div>
+                <div class="process-item">
+                    <div class="process-circle">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3>Research</h3>
+                    <p>User interviews, competitor analysis, and market research</p>
+                </div>
+                <div class="process-item">
+                    <div class="process-circle">
+                        <i class="fas fa-pencil-ruler"></i>
+                    </div>
+                    <h3>Wireframing</h3>
+                    <p>Low-fidelity prototypes to establish structure</p>
+                </div>
+                <div class="process-item">
+                    <div class="process-circle">
+                        <i class="fas fa-paint-brush"></i>
+                    </div>
+                    <h3>UI Design</h3>
+                    <p>High-fidelity mockups with brand identity</p>
+                </div>
+                <div class="process-item">
+                    <div class="process-circle">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                    <h3>Testing</h3>
+                    <p>User testing and iterative improvements</p>
+                </div>
+                <div class="process-item">
+                    <div class="process-circle">
+                        <i class="fas fa-code"></i>
+                    </div>
+                    <h3>Handoff</h3>
+                    <p>Developer-ready design systems</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Design Services</h2>
+            <div class="services-grid">
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <h3>Mobile App Design</h3>
+                    <p>iOS and Android interfaces following platform guidelines</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-desktop"></i>
+                    </div>
+                    <h3>Web Design</h3>
+                    <p>Responsive websites that work on all devices</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-swatchbook"></i>
+                    </div>
+                    <h3>Brand Identity</h3>
+                    <p>Color schemes, typography, and visual language</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>User Research</h3>
+                    <p>Personas, user journeys, and usability testing</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-object-group"></i>
+                    </div>
+                    <h3>Design Systems</h3>
+                    <p>Component libraries and style guides</p>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <h3>Data Visualization</h3>
+                    <p>Complex information made understandable</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Design Portfolio</h2>
+            <div class="portfolio-grid">
+                <div class="portfolio-item">
+                    <img src="images/mobile-shopping.png" alt="E-commerce App Design">
+                    <div class="portfolio-overlay">
+                        <h3>E-commerce App</h3>
+                        <p>Mobile shopping experience</p>
+                    </div>
+                </div>
+                <div class="portfolio-item">
+                    <img src="images/saas.png" alt="SaaS Dashboard">
+                    <div class="portfolio-overlay">
+                        <h3>SaaS Dashboard</h3>
+                        <p>Data-intensive interface</p>
+                    </div>
+                </div>
+                <div class="portfolio-item">
+                    <img src="images/health-care.png" alt="Healthcare Portal">
+                    <div class="portfolio-overlay">
+                        <h3>Healthcare Portal</h3>
+                        <p>Patient management system</p>
+                    </div>
+                </div>
+            </div>
+        </section><br>
+
+        <section>
+            <h2>Design Tools We Use</h2>
+            <div class="tech-stack">
+                <div class="tech-item tooltip">
+                    <i class="fab fa-figma"></i>
+                    <h4>Figma</h4>
+                    <span class="tooltiptext">Primary design tool for collaboration</span>
+                </div>
+                <div class="tech-item tooltip">
+                    <i class="fas fa-pen-fancy"></i>
+                    <h4>Adobe XD</h4>
+                    <span class="tooltiptext">For advanced prototyping</span>
+                </div>
+                <div class="tech-item tooltip">
+                    <i class="fas fa-cube"></i>
+                    <h4>Sketch</h4>
+                    <span class="tooltiptext">Vector-based design</span>
+                </div>
+                <div class="tech-item tooltip">
+                    <i class="fas fa-photo-video"></i>
+                    <h4>Adobe Suite</h4>
+                    <span class="tooltiptext">Photoshop, Illustrator, After Effects</span>
+                </div>
+                <div class="tech-item tooltip">
+                    <i class="fas fa-project-diagram"></i>
+                    <h4>Miro</h4>
+                    <span class="tooltiptext">Collaborative whiteboarding</span>
+                </div>
+                <div class="tech-item tooltip">
+                    <i class="fas fa-chart-bar"></i>
+                    <h4>Hotjar</h4>
+                    <span class="tooltiptext">User behavior analytics</span>
+                </div>
+            </div>
+        </section><br>
+
+        <section class="cta-section">
+            <h2>Ready to Elevate Your User Experience?</h2>
+            <p>Let's create something beautiful together.</p><br>
+            <a href="webburns_tech.html#contact" class="btn btn-primary">Start Your Design Project</a>
+        </section><br>
+    </div>
+
+    <!-- Footer (Same as main site) -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <!-- Footer content from webburns_tech.html -->
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2023 Webburns Tech. All Rights Reserved.</p>
+                <div class="legal-links">
+                    <a href="privacy-policy.html">Privacy Policy</a>
+                    <a href="terms-of-service.html">Terms of Service</a>
+                    <a href="cookies-policy.html">Cookies Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="videos/base.js"></script>
+    <script>
+        // Animate process items sequentially
+        const processItems = document.querySelectorAll('.process-item');
+        processItems.forEach((item, index) => {
+            item.style.opacity = '0';
+            item.style.transform = 'translateY(20px)';
+            item.style.transition = `all 0.5s ease ${index * 0.2}s`;
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            });
+            
+            observer.observe(item);
+        });
+    </script>
+</body>
+</html>
