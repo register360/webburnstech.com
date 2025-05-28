@@ -1,46 +1,33 @@
-require('dotenv').config(); // Load environment variables
 const express = require('express');
 const bodyParser = require('body-parser');
 const nodemailer = require('nodemailer');
-const cors = require('cors'); // Add CORS support
+const cors = require('cors');
 
 const app = express();
+app.use(cors());
+app.use(bodyParser.json());
 
-// Middleware
-app.use(cors()); // Enable CORS for all routes
-app.use(bodyParser.json()); // For parsing application/json
-app.use(bodyParser.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
-
-// Email configuration
+// Email transporter setup
 const transporter = nodemailer.createTransport({
   service: 'Gmail',
   host: 'smtp.gmail.com',
   port: 465,
-  secure: true, // SSL
+  secure: true,
   auth: {
-    user: process.env.GMAIL_USER || 'webburnstech@gmail.com', // Use environment variable
-    pass: process.env.GMAIL_PASS || 'uqtnttdliphtxhgh' // Use environment variable
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS
   }
 });
 
-// Contact form endpoint
-app.post('/submit-form', (req, res) => {
+app.post('/submit-form', async (req, res) => {
   try {
     const { name, email, subject, message } = req.body;
 
-    // Basic validation
-    if (!name || !email || !message) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Name, email, and message are required'
-      });
-    }
-
-    const mailOptions = {
-      from: `"Website Contact" <${process.env.GMAIL_USER || 'webburnstech@gmail.com'}>`,
-      to: process.env.GMAIL_USER || 'webburnstech@gmail.com',
+    // 1. Send email to your admin
+    const adminMailOptions = {
+      from: `"Website Contact" <${process.env.GMAIL_USER}>`,
+      to: process.env.GMAIL_USER,
       subject: `New Contact: ${subject || 'No Subject'}`,
-      text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
       html: `
         <h3>New Contact Form Submission</h3>
         <p><strong>Name:</strong> ${name}</p>
@@ -50,31 +37,45 @@ app.post('/submit-form', (req, res) => {
       `
     };
 
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error('Email send error:', error);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to send email',
-          error: error.toString()
-        });
-      }
-      
-      console.log('Email sent:', info.response);
-      res.json({
-        success: true,
-        message: 'Message sent successfully!'
-      });
+    // 2. Send confirmation email to user
+    const userMailOptions = {
+      from: `"Webburns Tech Support" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: 'Thank you for contacting Webburns Tech',
+      html: `
+        <h2>Thank you for reaching out, ${name}!</h2>
+        <p>We've received your message and our team will get back to you soon.</p>
+        <p>Here's what you submitted:</p>
+        <blockquote>
+          <p><strong>Subject:</strong> ${subject || 'No Subject'}</p>
+          <p><strong>Your Message:</strong></p>
+          <p>${message.replace(/\n/g, '<br>')}</p>
+        </blockquote>
+        <p>If you have any urgent inquiries, please email us directly at support@webburnstech.com</p>
+        <p>Best regards,<br>The Webburns Tech Team</p>
+      `
+    };
+
+    // Send both emails in parallel
+    await Promise.all([
+      transporter.sendMail(adminMailOptions),
+      transporter.sendMail(userMailOptions)
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Message sent successfully! A confirmation has been sent to your email.'
     });
+
   } catch (error) {
-    console.error('Server error:', error);
+    console.error('Email send error:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: 'Failed to send message',
+      error: error.message
     });
   }
 });
 
-// Start server
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
