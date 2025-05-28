@@ -214,16 +214,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 subject: document.getElementById('subject').value.trim(),
                 message: message.value.trim()
             };
+            // Get submit button and store original text
+            const submitBtn = contactForm.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML; // Store original content
             
             try {
                 // Show loading state
-                const submitBtn = contactForm.querySelector('button[type="submit"]');
-                const originalBtnText = submitBtn.textContent;
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
                 
                 // Send to server
-                const response = await fetch('https://your-render-service.onrender.com/submit-form', {
+                const response = await fetch('https://webburnstech-com.onrender.com/submit-form', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -268,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 5000);
             } finally {
                 // Reset button state
-                const submitBtn = contactForm.querySelector('button[type="submit"]');
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalBtnText;
             }
