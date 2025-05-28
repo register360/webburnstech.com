@@ -171,11 +171,11 @@ document.addEventListener('DOMContentLoaded', function() {
         showSlide(currentSlide);
     }, 5000);
     
-    // Form validation
+    // Form validation and submission
     const contactForm = document.getElementById('contactForm');
     
     if (contactForm) {
-        contactForm.addEventListener('submit', function(e) {
+        contactForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
             // Simple validation
@@ -205,10 +205,72 @@ document.addEventListener('DOMContentLoaded', function() {
                 message.style.borderColor = '#ddd';
             }
             
-            if (isValid) {
-                // In a real application, you would send the form data to a server here
-                alert('Thank you for your message! We will get back to you soon.');
-                contactForm.reset();
+            if (!isValid) return;
+            
+            // Create form data object
+            const formData = {
+                name: name.value.trim(),
+                email: email.value.trim(),
+                subject: document.getElementById('subject').value.trim(),
+                message: message.value.trim()
+            };
+            
+            try {
+                // Show loading state
+                const submitBtn = contactForm.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+                
+                // Send to server
+                const response = await fetch('https://your-render-service.onrender.com/submit-form', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Success
+                    const successMsg = document.createElement('div');
+                    successMsg.className = 'form-success';
+                    successMsg.innerHTML = `
+                        <i class="fas fa-check-circle"></i>
+                        <p>${result.message || 'Thank you! Your message has been sent.'}</p>
+                    `;
+                    contactForm.parentNode.insertBefore(successMsg, contactForm.nextSibling);
+                    contactForm.reset();
+                    
+                    // Remove success message after 5 seconds
+                    setTimeout(() => {
+                        successMsg.remove();
+                    }, 5000);
+                } else {
+                    // Server error
+                    throw new Error(result.message || 'Failed to send message');
+                }
+            } catch (error) {
+                // Network or other errors
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'form-error';
+                errorMsg.innerHTML = `
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>${error.message || 'Network error. Please try again later.'}</p>
+                `;
+                contactForm.parentNode.insertBefore(errorMsg, contactForm.nextSibling);
+                
+                // Remove error message after 5 seconds
+                setTimeout(() => {
+                    errorMsg.remove();
+                }, 5000);
+            } finally {
+                // Reset button state
+                const submitBtn = contactForm.querySelector('button[type="submit"]');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
             }
         });
     }
