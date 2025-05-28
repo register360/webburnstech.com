@@ -8,13 +8,16 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.post('/submit-form', (req, res) => {
     const { name, email, subject, message } = req.body;
 
-    const transporter = nodemailer.createTransport({
-        service: 'Gmail', // or another SMTP service
-        auth: {
-            user: 'webburnstech@gmail.com',
-            pass: 'uqtn ttdl ipht xhgh' // Use App Password (not regular password)
-        }
-    });
+const transporter = nodemailer.createTransport({
+  service: 'Gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // SSL
+  auth: {
+    user: 'webburnstech@gmail.com',
+    pass: 'uqtnttdliphtxhgh'
+  }
+});
 
     const mailOptions = {
         from: email,
