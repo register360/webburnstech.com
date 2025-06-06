@@ -1,9 +1,8 @@
 <html>
 <head>
-<title>webburnstech.com</title>
 </head>
 <body>
-  <h1>WEBBURNS TECH</h1>
+  <h1><a href="http://www.weburnstech.ct.ws/">WEBBURNS TECH</a></h1>
   <h2>HYDERABAD</h2>
 </body>
 </html>
