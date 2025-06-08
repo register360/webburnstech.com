@@ -315,32 +315,78 @@
       cursor: pointer;
     }
     
+    /* Call UI */
+    #call-container {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    
+    #call-status {
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    #end-call-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    
     /* Responsive Design */
     @media (max-width: 768px) {
       .chat-main {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
+        height: auto;
       }
-      
+
       .sidebar {
         width: 100%;
-        height: 200px;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
         border-right: none;
         border-bottom: 1px solid #ddd;
+        padding: 0.5rem;
+        gap: 1rem;
+      }
+
+      .room-list,
+      .user-list {
+        min-width: 150px;
+        flex-shrink: 0;
+      }
+
+      .room-item,
+      .user-item {
+        font-size: 0.9rem;
+      }
+
+      .chat-area {
+        width: 100%;
+      }
+
+      .messages-container {
+        height: 60vh;
       }
       
-      .message {
-        max-width: 85%;
+      #call-container {
+        bottom: 10px;
+        right: 10px;
+        left: 10px;
+        width: calc(100% - 20px);
       }
-    }
-    
-    /* Animations */
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .message {
-      animation: fadeIn 0.3s ease-out;
     }
   </style>
 </head>
@@ -420,8 +466,18 @@
     </div>
   </div>
 
+  <!-- Call UI -->
+  <div id="call-container">
+    <div id="call-status">Call in progress...</div>
+    <button id="end-call-btn">
+      <i class="fas fa-phone"></i> End Call
+    </button>
+    <audio id="remote-audio" autoplay></audio>
+    <audio id="local-audio" muted autoplay></audio>
+  </div>
+
   <script>
-     // Updated Firebase configuration with only the database URL
+    // Updated Firebase configuration with only the database URL
     const firebaseConfig = {
       databaseURL: "https://webburnstech-2812c-default-rtdb.firebaseio.com/"
     };
@@ -429,9 +485,6 @@
     // Initialize Firebase
     const app = firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-    
-    // For authentication, we'll use a simple username system without Firebase Auth
-    // since we don't have the full Firebase config with API keys
     
     // DOM elements
     const authContainer = document.getElementById('auth-container');
@@ -451,6 +504,24 @@
     const emojiBtn = document.getElementById('emoji-btn');
     const emojiMenu = document.getElementById('emoji-menu');
     const roomItems = document.querySelectorAll('.room-item');
+    const callContainer = document.getElementById('call-container');
+    const callStatus = document.getElementById('call-status');
+    const endCallBtn = document.getElementById('end-call-btn');
+    const remoteAudio = document.getElementById('remote-audio');
+    const localAudio = document.getElementById('local-audio');
+
+    // WebRTC variables
+    let peerConnection;
+    let localStream;
+    let callInProgress = false;
+    let currentCallWith = null;
+    const servers = {
+      iceServers: [
+        {
+          urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302']
+        }
+      ]
+    };
 
     // App state
     let currentUser = null;
@@ -458,6 +529,8 @@
     let isLoginMode = true;
     let typingTimeout = null;
     let lastTypingTime = 0;
+    let userStatusRef = null;
+    let connectedRef = null;
 
     // Emoji list
     const emojis = ['😀', '😂', '😍', '😎', '😊', '👍', '❤️', '🔥', '🎉', '🤔', '🙄', '😴', '😢', '😡', '🤯', '👋', '✌️', '🤟', '👏', '🙌'];
@@ -504,20 +577,18 @@
     // Handle authentication form submission
     authForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const username = document.getElementById('name').value.trim(); // Using email field for username
-      const password = document.getElementById('password').value; // Not actually used in this simplified version
+      const username = document.getElementById('name').value.trim();
+      const password = document.getElementById('password').value;
       
       if (!username) {
         alert('Please enter a username');
         return;
       }
-      if (password!="Chat@123") {
-        alert('Please enter a Valid Password');
+      if (password !== "Chat@123") {
+        alert('Please enter a valid password');
         return;
       }
       
-      // In a real app, you would verify credentials with a server
-      // Here we'll just use the username directly
       currentUser = {
         uid: generateSimpleId(),
         username: username
@@ -528,7 +599,7 @@
       chatContainer.style.display = 'block';
       
       // Set user as online
-      const userStatusRef = database.ref('status/' + currentUser.uid);
+      userStatusRef = database.ref('status/' + currentUser.uid);
       const isOfflineForDatabase = {
         state: 'offline',
         last_changed: firebase.database.ServerValue.TIMESTAMP,
@@ -541,7 +612,8 @@
         room: currentRoom
       };
       
-      database.ref('.info/connected').on('value', (snapshot) => {
+      connectedRef = database.ref('.info/connected');
+      connectedRef.on('value', (snapshot) => {
         if (snapshot.val() === false) return;
         
         userStatusRef.onDisconnect().set(isOfflineForDatabase).then(() => {
@@ -549,11 +621,12 @@
         });
       });
       
-      // Load chat room
+      // Load chat room and setup calling
       loadChatRoom(currentRoom);
+      setupCalling();
     });
 
-    // Simple ID generator for our basic auth system
+    // Simple ID generator
     function generateSimpleId() {
       return 'user-' + Math.random().toString(36).substr(2, 9);
     }
@@ -561,24 +634,34 @@
     // Handle logout
     logoutBtn.addEventListener('click', () => {
       if (currentUser) {
-        database.ref('status/' + currentUser.uid).set({
+        // Set user offline
+        userStatusRef.set({
           state: 'offline',
           last_changed: firebase.database.ServerValue.TIMESTAMP,
+        }).then(() => {
+          // Remove all Firebase listeners
+          database.ref('messages/' + currentRoom).off();
+          database.ref('typing/' + currentRoom + '/' + currentUser.uid).remove();
+          database.ref('status').off();
+          if (connectedRef) connectedRef.off();
+          database.ref('calls/' + currentUser.uid).off();
+          
+          // End any active call
+          endCall();
+          
+          // Clear UI
+          messagesContainer.innerHTML = '';
+          onlineUsers.innerHTML = '';
+          typingIndicator.style.display = 'none';
+          
+          // Reset state
+          currentUser = null;
+          
+          // Show auth screen
+          authContainer.style.display = 'flex';
+          chatContainer.style.display = 'none';
         });
-         // Remove listeners
-    database.ref('messages/' + currentRoom).off();
-    database.ref('typing/' + currentRoom).off();
-    database.ref('status').off();
-    database.ref('.info/connected').off();
-
-    // Clear UI
-    messagesContainer.innerHTML = '';
-    onlineUsers.innerHTML = '';
-    typingIndicator.style.display = 'none';
       }
-      currentUser = null;
-      authContainer.style.display = 'flex';
-      chatContainer.style.display = 'none';
     });
 
     // Change chat room
@@ -593,7 +676,7 @@
           
           // Update user's current room
           if (currentUser) {
-            database.ref('status/' + currentUser.uid).update({
+            userStatusRef.update({
               room: room
             });
           }
@@ -606,6 +689,9 @@
       // Clear previous messages
       messagesContainer.innerHTML = '';
       
+      // Remove existing message listener
+      database.ref('messages/' + currentRoom).off();
+      
       // Load messages
       database.ref('messages/' + room).limitToLast(100).on('value', (snapshot) => {
         messagesContainer.innerHTML = '';
@@ -616,17 +702,23 @@
         scrollToBottom();
       });
       
+      // Remove existing status listener
+      database.ref('status').orderByChild('room').equalTo(currentRoom).off();
+      
       // Load online users in this room
       database.ref('status').orderByChild('room').equalTo(room).on('value', (snapshot) => {
         onlineUsers.innerHTML = '';
         snapshot.forEach(childSnapshot => {
           const user = childSnapshot.val();
-          if (user.state === 'online') {
+          if (user.state === 'online' && childSnapshot.key !== currentUser?.uid) {
             const userElement = document.createElement('div');
             userElement.classList.add('user-item');
             userElement.innerHTML = `
               <div class="online-indicator"></div>
               ${user.username}
+              <button class="call-btn" data-userid="${childSnapshot.key}" data-username="${user.username}" style="margin-left: auto; background: var(--success); color: white; border: none; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-phone"></i>
+              </button>
             `;
             onlineUsers.appendChild(userElement);
           }
@@ -731,6 +823,237 @@
         typingIndicator.style.display = 'none';
       }
     });
+
+    // Call functionality
+    document.addEventListener('click', function(e) {
+      if (e.target.classList.contains('call-btn') || e.target.closest('.call-btn')) {
+        const button = e.target.classList.contains('call-btn') ? e.target : e.target.closest('.call-btn');
+        const userId = button.getAttribute('data-userid');
+        const username = button.getAttribute('data-username');
+        initiateCall(userId, username);
+      }
+    });
+
+    endCallBtn.addEventListener('click', endCall);
+
+    async function initiateCall(targetUserId, username) {
+      if (callInProgress) {
+        alert('You already have a call in progress');
+        return;
+      }
+
+      try {
+        // Get user media
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localAudio.srcObject = localStream;
+        
+        // Create peer connection
+        peerConnection = new RTCPeerConnection(servers);
+        
+        // Add local stream to connection
+        localStream.getTracks().forEach(track => {
+          peerConnection.addTrack(track, localStream);
+        });
+        
+        // Set up ICE candidate handling
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            database.ref(`calls/${currentUser.uid}/${targetUserId}/callerCandidates`).push({
+              candidate: event.candidate
+            });
+          }
+        };
+        
+        // Set up remote stream handling
+        peerConnection.ontrack = (event) => {
+          remoteAudio.srcObject = event.streams[0];
+        };
+        
+        // Create offer
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        // Set call state
+        callInProgress = true;
+        currentCallWith = targetUserId;
+        
+        // Show call UI
+        callContainer.style.display = 'block';
+        callStatus.textContent = `Calling ${username}...`;
+        
+        // Create call in Firebase
+        const callRef = database.ref(`calls/${targetUserId}/${currentUser.uid}`);
+        await callRef.set({
+          offer: {
+            type: offer.type,
+            sdp: offer.sdp
+          },
+          from: currentUser.uid,
+          to: targetUserId,
+          callerName: currentUser.username,
+          timestamp: Date.now()
+        });
+        
+        // Listen for answer
+        callRef.child('answer').on('value', async (snapshot) => {
+          if (snapshot.exists() && peerConnection.remoteDescription === null) {
+            const answer = snapshot.val();
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            callStatus.textContent = `In call with ${username}`;
+          }
+        });
+        
+        // Listen for remote ICE candidates
+        database.ref(`calls/${currentUser.uid}/${targetUserId}/calleeCandidates`).on('child_added', async (snapshot) => {
+          if (snapshot.exists()) {
+            const candidate = new RTCIceCandidate(snapshot.val());
+            await peerConnection.addIceCandidate(candidate);
+          }
+        });
+        
+        // Listen for call ending
+        callRef.child('ended').on('value', (snapshot) => {
+          if (snapshot.exists() && snapshot.val() === true) {
+            endCall();
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error initiating call:', error);
+        alert('Error starting call: ' + error.message);
+        endCall();
+      }
+    }
+
+    function setupIncomingCallListener() {
+      database.ref(`calls/${currentUser.uid}`).on('child_added', async (snapshot) => {
+        if (callInProgress) return;
+        
+        const callerId = snapshot.key;
+        const callData = snapshot.val();
+        
+        if (callData.ended) return;
+        
+        // Show call dialog
+        const accept = confirm(`${callData.callerName} is calling. Accept?`);
+        
+        if (accept) {
+          try {
+            currentCallWith = callerId;
+            callInProgress = true;
+            
+            // Get user media
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localAudio.srcObject = localStream;
+            
+            // Create peer connection
+            peerConnection = new RTCPeerConnection(servers);
+            
+            // Add local stream to connection
+            localStream.getTracks().forEach(track => {
+              peerConnection.addTrack(track, localStream);
+            });
+            
+            // Set up ICE candidate handling
+            peerConnection.onicecandidate = (event) => {
+              if (event.candidate) {
+                database.ref(`calls/${callerId}/${currentUser.uid}/calleeCandidates`).push({
+                  candidate: event.candidate
+                });
+              }
+            };
+            
+            // Set up remote stream handling
+            peerConnection.ontrack = (event) => {
+              remoteAudio.srcObject = event.streams[0];
+            };
+            
+            // Set remote description from offer
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+            
+            // Create answer
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
+            // Send answer to caller
+            await database.ref(`calls/${callerId}/${currentUser.uid}/answer`).set({
+              type: answer.type,
+              sdp: answer.sdp
+            });
+            
+            // Show call UI
+            callContainer.style.display = 'block';
+            callStatus.textContent = `In call with ${callData.callerName}`;
+            
+            // Listen for caller ICE candidates
+            database.ref(`calls/${callerId}/${currentUser.uid}/callerCandidates`).on('child_added', async (candidateSnapshot) => {
+              if (candidateSnapshot.exists()) {
+                const candidate = new RTCIceCandidate(candidateSnapshot.val());
+                await peerConnection.addIceCandidate(candidate);
+              }
+            });
+            
+            // Listen for call ending
+            database.ref(`calls/${callerId}/${currentUser.uid}/ended`).on('value', (endSnapshot) => {
+              if (endSnapshot.exists() && endSnapshot.val() === true) {
+                endCall();
+              }
+            });
+            
+          } catch (error) {
+            console.error('Error accepting call:', error);
+            alert('Error accepting call: ' + error.message);
+            endCall();
+          }
+        } else {
+          // Reject the call
+          database.ref(`calls/${callerId}/${currentUser.uid}/ended`).set(true);
+        }
+      });
+    }
+
+    function endCall() {
+      if (!callInProgress) return;
+      
+      // Close peer connection
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      
+      // Stop local stream
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      
+      // Clear audio elements
+      remoteAudio.srcObject = null;
+      localAudio.srcObject = null;
+      
+      // Hide call UI
+      callContainer.style.display = 'none';
+      
+      // Notify other participant
+      if (currentCallWith) {
+        database.ref(`calls/${currentUser.uid}/${currentCallWith}/ended`).set(true);
+        database.ref(`calls/${currentCallWith}/${currentUser.uid}/ended`).set(true);
+        
+        // Clean up Firebase data
+        setTimeout(() => {
+          database.ref(`calls/${currentUser.uid}/${currentCallWith}`).remove();
+          database.ref(`calls/${currentCallWith}/${currentUser.uid}`).remove();
+        }, 1000);
+      }
+      
+      // Reset call state
+      callInProgress = false;
+      currentCallWith = null;
+    }
+
+    function setupCalling() {
+      setupIncomingCallListener();
+    }
 
     // Scroll to bottom of chat
     function scrollToBottom() {
