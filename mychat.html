@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webburns Chat</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #4a6fa5;
+      --secondary: #166088;
+      --dark: #0a0a0a;
+      --light: #f8f9fa;
+      --success: #28a745;
+      --danger: #dc3545;
+      --warning: #ffc107;
+      --info: #17a2b8;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+      line-height: 1.6;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    /* Auth Section */
+    .auth-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+    }
+    
+    .auth-box {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .auth-box h2 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: var(--secondary);
+    }
+    
+    .auth-form .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .auth-form label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+    
+    .auth-form input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    
+    .auth-form button {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 1rem;
+    }
+    
+    .auth-form button:hover {
+      background-color: var(--secondary);
+    }
+    
+    .auth-switch {
+      text-align: center;
+      margin-top: 1rem;
+    }
+    
+    .auth-switch a {
+      color: var(--primary);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    
+    /* Chat Section */
+    .chat-container {
+      display: none;
+      height: 100vh;
+      background-color: white;
+    }
+    
+    .chat-header {
+      background-color: var(--primary);
+      color: white;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .chat-header h2 {
+      font-size: 1.5rem;
+    }
+    
+    .chat-header .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .chat-header .logout-btn {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    
+    .chat-main {
+      display: flex;
+      height: calc(100vh - 120px);
+    }
+    
+    .sidebar {
+      width: 250px;
+      background-color: #f8f9fa;
+      border-right: 1px solid #ddd;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    
+    .room-list h3, .user-list h3 {
+      margin-bottom: 1rem;
+      color: var(--secondary);
+    }
+    
+    .room-item, .user-item {
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .room-item:hover, .user-item:hover {
+      background-color: #e9ecef;
+    }
+    
+    .room-item.active {
+      background-color: var(--primary);
+      color: white;
+    }
+    
+    .user-item .online-indicator {
+      width: 10px;
+      height: 10px;
+      background-color: var(--success);
+      border-radius: 50%;
+    }
+    
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .messages-container {
+      flex: 1;
+      padding: 1rem;
+      background-image: linear-gradient(to bottom, #14385b, #01162d);
+      overflow-y: auto;
+      background-color: white;
+    }
+    
+    .message {
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background-color: #f8f9fa;
+      max-width: 70%;
+    }
+    
+    .message.current-user {
+      margin-left: auto;
+      background-color: var(--primary);
+      color: white;
+    }
+    
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .message-sender {
+      font-weight: bold;
+    }
+    
+    .message-time {
+      color: #6c757d;
+      font-size: 0.8rem;
+    }
+    
+    .message.current-user .message-time {
+      color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .message-content {
+      word-wrap: break-word;
+    }
+    
+    .typing-indicator {
+      font-style: italic;
+      color: #6c757d;
+      margin: 0.5rem 0;
+    }
+    
+    .input-area {
+      padding: 1rem;
+      background-color: #f8f9fa;
+      border-top: 1px solid #ddd;
+    }
+    
+    .message-input {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .message-input input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    
+    .message-input button {
+      padding: 0.75rem 1.5rem;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    .message-input button:hover {
+      background-color: var(--secondary);
+    }
+    
+    .emoji-picker {
+      position: relative;
+    }
+    
+    .emoji-btn {
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      cursor: pointer;
+      color: var(--primary);
+    }
+    
+    .emoji-menu {
+      position: absolute;
+      bottom: 40px;
+      left: 0;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      width: 250px;
+      height: 200px;
+      overflow-y: auto;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      display: none;
+      z-index: 100;
+    }
+    
+    .emoji-menu.show {
+      display: block;
+    }
+    
+    .emoji-item {
+      display: inline-block;
+      font-size: 1.5rem;
+      margin: 5px;
+      cursor: pointer;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .chat-main {
+        flex-direction: column;
+      }
+      
+      .sidebar {
+        width: 100%;
+        height: 200px;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+      }
+      
+      .message {
+        max-width: 85%;
+      }
+    }
+    
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .message {
+      animation: fadeIn 0.3s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <!-- Authentication Section -->
+  <div class="auth-container" id="auth-container">
+    <div class="auth-box">
+      <h2 id="auth-title">Login</h2>
+      <form class="auth-form" id="auth-form">
+        <div class="form-group">
+          <label for="email">Username</label>
+          <input type="text" id="name" placeholder="Enter Your Name" minlength="3">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" maxlength="8">
+        </div>
+        <button type="submit" id="auth-btn">Login</button>
+      </form>
+      <div class="auth-switch">
+        <span id="auth-switch-text"></span>
+        <a id="auth-switch-link"></a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Section -->
+  <div class="chat-container" id="chat-container">
+    <div class="chat-header">
+      <h2>Webburns Chat</h2>
+      <div class="user-info">
+        <span id="current-username"></span>
+        <button class="logout-btn" id="logout-btn">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
+      </div>
+    </div>
+    
+    <div class="chat-main">
+      <div class="sidebar">
+        <div class="room-list">
+          <h3>Chat Rooms</h3>
+          <div class="room-item active" data-room="general">
+            <i class="fas fa-hashtag"></i> General
+          </div>
+          <div class="room-item" data-room="random">
+            <i class="fas fa-hashtag"></i> Random
+          </div>
+          <div class="room-item" data-room="help">
+            <i class="fas fa-hashtag"></i> Help
+          </div>
+        </div>
+        
+        <div class="user-list">
+          <h3>Online Users</h3>
+          <div id="online-users"></div>
+        </div>
+      </div>
+      
+      <div class="chat-area">
+        <div class="messages-container" id="messages-container"></div>
+        
+        <div class="input-area">
+          <div id="typing-indicator" class="typing-indicator" style="display: none;"></div>
+          <div class="message-input">
+            <input type="text" id="message-input" placeholder="Type a message...">
+            <div class="emoji-picker">
+              <button class="emoji-btn" id="emoji-btn">😊</button>
+              <div class="emoji-menu" id="emoji-menu">
+                <!-- Emojis will be added here by JavaScript -->
+              </div>
+            </div>
+            <button id="send-btn">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+     // Updated Firebase configuration with only the database URL
+    const firebaseConfig = {
+      databaseURL: "https://webburnstech-2812c-default-rtdb.firebaseio.com/"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    
+    // For authentication, we'll use a simple username system without Firebase Auth
+    // since we don't have the full Firebase config with API keys
+    
+    // DOM elements
+    const authContainer = document.getElementById('auth-container');
+    const chatContainer = document.getElementById('chat-container');
+    const authForm = document.getElementById('auth-form');
+    const authTitle = document.getElementById('auth-title');
+    const authBtn = document.getElementById('auth-btn');
+    const authSwitchText = document.getElementById('auth-switch-text');
+    const authSwitchLink = document.getElementById('auth-switch-link');
+    const currentUsername = document.getElementById('current-username');
+    const logoutBtn = document.getElementById('logout-btn');
+    const messagesContainer = document.getElementById('messages-container');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const onlineUsers = document.getElementById('online-users');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const emojiBtn = document.getElementById('emoji-btn');
+    const emojiMenu = document.getElementById('emoji-menu');
+    const roomItems = document.querySelectorAll('.room-item');
+
+    // App state
+    let currentUser = null;
+    let currentRoom = 'general';
+    let isLoginMode = true;
+    let typingTimeout = null;
+    let lastTypingTime = 0;
+
+    // Emoji list
+    const emojis = ['😀', '😂', '😍', '😎', '😊', '👍', '❤️', '🔥', '🎉', '🤔', '🙄', '😴', '😢', '😡', '🤯', '👋', '✌️', '🤟', '👏', '🙌'];
+
+    // Initialize emoji picker
+    emojis.forEach(emoji => {
+      const emojiElement = document.createElement('span');
+      emojiElement.classList.add('emoji-item');
+      emojiElement.textContent = emoji;
+      emojiElement.addEventListener('click', () => {
+        messageInput.value += emoji;
+        messageInput.focus();
+      });
+      emojiMenu.appendChild(emojiElement);
+    });
+
+    // Toggle emoji menu
+    emojiBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      emojiMenu.classList.toggle('show');
+    });
+
+    // Close emoji menu when clicking outside
+    document.addEventListener('click', () => {
+      emojiMenu.classList.remove('show');
+    });
+
+    // Switch between login and register
+    authSwitchLink.addEventListener('click', () => {
+      isLoginMode = !isLoginMode;
+      if (isLoginMode) {
+        authTitle.textContent = 'Login';
+        authBtn.textContent = 'Login';
+        authSwitchText.textContent = "Don't have an account?";
+        authSwitchLink.textContent = 'Register';
+      } else {
+        authTitle.textContent = 'Register';
+        authBtn.textContent = 'Register';
+        authSwitchText.textContent = "Already have an account?";
+        authSwitchLink.textContent = 'Login';
+      }
+    });
+
+    // Handle authentication form submission
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('name').value.trim(); // Using email field for username
+      const password = document.getElementById('password').value; // Not actually used in this simplified version
+      
+      if (!username) {
+        alert('Please enter a username');
+        return;
+      }
+      if (password!="Chat@123") {
+        alert('Please enter a Valid Password');
+        return;
+      }
+      
+      // In a real app, you would verify credentials with a server
+      // Here we'll just use the username directly
+      currentUser = {
+        uid: generateSimpleId(),
+        username: username
+      };
+      
+      currentUsername.textContent = currentUser.username;
+      authContainer.style.display = 'none';
+      chatContainer.style.display = 'block';
+      
+      // Set user as online
+      const userStatusRef = database.ref('status/' + currentUser.uid);
+      const isOfflineForDatabase = {
+        state: 'offline',
+        last_changed: firebase.database.ServerValue.TIMESTAMP,
+      };
+      
+      const isOnlineForDatabase = {
+        state: 'online',
+        last_changed: firebase.database.ServerValue.TIMESTAMP,
+        username: currentUser.username,
+        room: currentRoom
+      };
+      
+      database.ref('.info/connected').on('value', (snapshot) => {
+        if (snapshot.val() === false) return;
+        
+        userStatusRef.onDisconnect().set(isOfflineForDatabase).then(() => {
+          userStatusRef.set(isOnlineForDatabase);
+        });
+      });
+      
+      // Load chat room
+      loadChatRoom(currentRoom);
+    });
+
+    // Simple ID generator for our basic auth system
+    function generateSimpleId() {
+      return 'user-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // Handle logout
+    logoutBtn.addEventListener('click', () => {
+      if (currentUser) {
+        database.ref('status/' + currentUser.uid).set({
+          state: 'offline',
+          last_changed: firebase.database.ServerValue.TIMESTAMP,
+        });
+         // Remove listeners
+    database.ref('messages/' + currentRoom).off();
+    database.ref('typing/' + currentRoom).off();
+    database.ref('status').off();
+    database.ref('.info/connected').off();
+
+    // Clear UI
+    messagesContainer.innerHTML = '';
+    onlineUsers.innerHTML = '';
+    typingIndicator.style.display = 'none';
+      }
+      currentUser = null;
+      authContainer.style.display = 'flex';
+      chatContainer.style.display = 'none';
+    });
+
+    // Change chat room
+    roomItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const room = item.getAttribute('data-room');
+        if (room !== currentRoom) {
+          roomItems.forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          currentRoom = room;
+          loadChatRoom(room);
+          
+          // Update user's current room
+          if (currentUser) {
+            database.ref('status/' + currentUser.uid).update({
+              room: room
+            });
+          }
+        }
+      });
+    });
+
+    // Load chat room
+    function loadChatRoom(room) {
+      // Clear previous messages
+      messagesContainer.innerHTML = '';
+      
+      // Load messages
+      database.ref('messages/' + room).limitToLast(100).on('value', (snapshot) => {
+        messagesContainer.innerHTML = '';
+        snapshot.forEach(childSnapshot => {
+          const message = childSnapshot.val();
+          displayMessage(message);
+        });
+        scrollToBottom();
+      });
+      
+      // Load online users in this room
+      database.ref('status').orderByChild('room').equalTo(room).on('value', (snapshot) => {
+        onlineUsers.innerHTML = '';
+        snapshot.forEach(childSnapshot => {
+          const user = childSnapshot.val();
+          if (user.state === 'online') {
+            const userElement = document.createElement('div');
+            userElement.classList.add('user-item');
+            userElement.innerHTML = `
+              <div class="online-indicator"></div>
+              ${user.username}
+            `;
+            onlineUsers.appendChild(userElement);
+          }
+        });
+      });
+    }
+
+    // Display a message
+    function displayMessage(message) {
+      const messageElement = document.createElement('div');
+      messageElement.classList.add('message');
+      
+      if (currentUser && message.senderId === currentUser.uid) {
+        messageElement.classList.add('current-user');
+      }
+      
+      const time = new Date(message.timestamp);
+      const timeString = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      messageElement.innerHTML = `
+        <div class="message-header">
+          <span class="message-sender">${message.username}</span>
+          <span class="message-time">${timeString}</span>
+        </div>
+        <div class="message-content">${message.text}</div>
+      `;
+      
+      messagesContainer.appendChild(messageElement);
+      scrollToBottom();
+    }
+
+    // Send message
+    function sendMessage() {
+      const text = messageInput.value.trim();
+      if (text && currentUser) {
+        const messageRef = database.ref('messages/' + currentRoom).push();
+        messageRef.set({
+          text: text,
+          username: currentUser.username,
+          senderId: currentUser.uid,
+          timestamp: Date.now()
+        });
+        
+        messageInput.value = '';
+        stopTyping();
+      }
+    }
+
+    // Send message on button click or Enter key
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
+    // Typing indicator
+    messageInput.addEventListener('input', () => {
+      updateTyping();
+    });
+
+    function updateTyping() {
+      if (!currentUser) return;
+      
+      const now = Date.now();
+      if (now - lastTypingTime > 1000) {
+        database.ref('typing/' + currentRoom + '/' + currentUser.uid).set({
+          username: currentUser.username,
+          timestamp: now
+        });
+        lastTypingTime = now;
+      }
+      
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(stopTyping, 3000);
+    }
+
+    function stopTyping() {
+      if (!currentUser) return;
+      database.ref('typing/' + currentRoom + '/' + currentUser.uid).remove();
+    }
+
+    // Listen for typing indicators
+    database.ref('typing/' + currentRoom).on('value', (snapshot) => {
+      const typers = [];
+      snapshot.forEach(childSnapshot => {
+        if (childSnapshot.key !== currentUser?.uid) {
+          typers.push(childSnapshot.val().username);
+        }
+      });
+      
+      if (typers.length > 0) {
+        let text = typers.join(', ');
+        if (typers.length > 1) {
+          text += ' are typing...';
+        } else {
+          text += ' is typing...';
+        }
+        typingIndicator.textContent = text;
+        typingIndicator.style.display = 'block';
+      } else {
+        typingIndicator.style.display = 'none';
+      }
+    });
+
+    // Scroll to bottom of chat
+    function scrollToBottom() {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  </script>
+</body>
+</html>
