@@ -473,7 +473,7 @@
       <i class="fas fa-phone"></i> End Call
     </button>
     <audio id="remote-audio" autoplay></audio>
-    <audio id="local-audio" muted autoplay></audio>
+    <audio id="local-audio" autoplay muted></audio>
   </div>
 
   <script>
@@ -844,8 +844,9 @@
 
       try {
         // Get user media
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         localAudio.srcObject = localStream;
+        localAudio.muted = true; // Mute local audio to prevent echo
         
         // Create peer connection
         peerConnection = new RTCPeerConnection(servers);
@@ -858,15 +859,18 @@
         // Set up ICE candidate handling
         peerConnection.onicecandidate = (event) => {
           if (event.candidate) {
-            database.ref(`calls/${currentUser.uid}/${targetUserId}/callerCandidates`).push({
-              candidate: event.candidate
+            database.ref(`calls/${targetUserId}/${currentUser.uid}/callerCandidates`).push({
+              candidate: event.candidate.toJSON()
             });
           }
         };
         
         // Set up remote stream handling
         peerConnection.ontrack = (event) => {
-          remoteAudio.srcObject = event.streams[0];
+          if (!remoteAudio.srcObject) {
+            remoteAudio.srcObject = event.streams[0];
+            remoteAudio.muted = false; // Unmute remote audio
+          }
         };
         
         // Create offer
@@ -904,10 +908,14 @@
         });
         
         // Listen for remote ICE candidates
-        database.ref(`calls/${currentUser.uid}/${targetUserId}/calleeCandidates`).on('child_added', async (snapshot) => {
+        database.ref(`calls/${targetUserId}/${currentUser.uid}/calleeCandidates`).on('child_added', async (snapshot) => {
           if (snapshot.exists()) {
-            const candidate = new RTCIceCandidate(snapshot.val());
-            await peerConnection.addIceCandidate(candidate);
+            try {
+              const candidate = new RTCIceCandidate(snapshot.val());
+              await peerConnection.addIceCandidate(candidate);
+            } catch (error) {
+              console.error('Error adding ICE candidate:', error);
+            }
           }
         });
         
@@ -917,6 +925,15 @@
             endCall();
           }
         });
+        
+        // Add connection state listeners for debugging
+        peerConnection.onconnectionstatechange = () => {
+          console.log('Connection state:', peerConnection.connectionState);
+        };
+        
+        peerConnection.oniceconnectionstatechange = () => {
+          console.log('ICE connection state:', peerConnection.iceConnectionState);
+        };
         
       } catch (error) {
         console.error('Error initiating call:', error);
@@ -943,8 +960,9 @@
             callInProgress = true;
             
             // Get user media
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             localAudio.srcObject = localStream;
+            localAudio.muted = true; // Mute local audio to prevent echo
             
             // Create peer connection
             peerConnection = new RTCPeerConnection(servers);
@@ -958,14 +976,17 @@
             peerConnection.onicecandidate = (event) => {
               if (event.candidate) {
                 database.ref(`calls/${callerId}/${currentUser.uid}/calleeCandidates`).push({
-                  candidate: event.candidate
+                  candidate: event.candidate.toJSON()
                 });
               }
             };
             
             // Set up remote stream handling
             peerConnection.ontrack = (event) => {
-              remoteAudio.srcObject = event.streams[0];
+              if (!remoteAudio.srcObject) {
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.muted = false; // Unmute remote audio
+              }
             };
             
             // Set remote description from offer
@@ -988,8 +1009,12 @@
             // Listen for caller ICE candidates
             database.ref(`calls/${callerId}/${currentUser.uid}/callerCandidates`).on('child_added', async (candidateSnapshot) => {
               if (candidateSnapshot.exists()) {
-                const candidate = new RTCIceCandidate(candidateSnapshot.val());
-                await peerConnection.addIceCandidate(candidate);
+                try {
+                  const candidate = new RTCIceCandidate(candidateSnapshot.val());
+                  await peerConnection.addIceCandidate(candidate);
+                } catch (error) {
+                  console.error('Error adding ICE candidate:', error);
+                }
               }
             });
             
@@ -999,6 +1024,15 @@
                 endCall();
               }
             });
+            
+            // Add connection state listeners for debugging
+            peerConnection.onconnectionstatechange = () => {
+              console.log('Connection state:', peerConnection.connectionState);
+            };
+            
+            peerConnection.oniceconnectionstatechange = () => {
+              console.log('ICE connection state:', peerConnection.iceConnectionState);
+            };
             
           } catch (error) {
             console.error('Error accepting call:', error);
