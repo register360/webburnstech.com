@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const { CohereClient } = require('cohere-ai');
-
+const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -9,6 +9,11 @@ const port = process.env.PORT || 3000;
 const cohere = new CohereClient({
   token: process.env.COHERE_API_KEY,
 });
+app.use(cors({
+  origin: 'https://register360.github.io/webburnstech.com/webburns_tech.html', // For production, replace with your frontend URL
+  methods: ['GET','POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
+}));
 
 // System prompt matching your requirements
 const SYSTEM_PROMPT = `
