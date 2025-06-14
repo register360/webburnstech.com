@@ -10,9 +10,8 @@ const cohere = new CohereClient({
   token: process.env.COHERE_API_KEY,
 });
 app.use(cors({
-  origin: 'https://register360.github.io/webburnstech.com/webburns_tech.html', // For production, replace with your frontend URL
-  methods: ['GET','POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
+  origin: '*',
+  methods: ['POST', 'OPTIONS']
 }));
 
 // System prompt matching your requirements
