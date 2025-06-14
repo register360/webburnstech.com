@@ -5,60 +5,68 @@ const { OpenAI } = require('openai');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
 
+// Initialize OpenAI
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+    apiKey: process.env.OPENAI_API_KEY
 });
 
-const assistantId = 'asst_B6TcUnUsM6gUZm4cxDaAN5Bb'; // your actual assistant ID
-
+// AI Assistant Endpoint
 app.post('/api/ai-assistant', async (req, res) => {
-  const userInput = req.body.message;
-  console.log("🚀 Incoming Message:", userInput);
+    try {
+        const { message } = req.body;
+        
+        const instructions = `
+        You are Webburns Assistant, an intelligent and friendly AI chatbot for Webburns Tech. Your role is to help website visitors by answering their questions about web development, mobile apps, UI/UX design, and digital strategy.
 
-  try {
-    // Step 1: Create a thread
-    const thread = await openai.beta.threads.create();
-    console.log("🧵 Thread ID:", thread.id);
+        Speak in a clear, professional, and helpful tone. Be concise, yet informative.
 
-    // Step 2: Add message to thread
-    await openai.beta.threads.messages.create(thread.id, {
-      role: "user",
-      content: userInput
-    });
+        You can:
+        - Explain services offered by Webburns Tech
+        - Assist users in understanding web development terms
+        - Suggest what service might suit their project
+        - Encourage users to contact the team for custom solutions
+        - Answer casual questions politely
+        - Never give legal, medical, or personal advice
 
-    // Step 3: Run the assistant
-    const run = await openai.beta.threads.runs.create(thread.id, {
-      assistant_id: assistantId
-    });
+        Begin each conversation with a warm greeting like:
+        "Hi! I'm Webburns Assistant. How can I help you today?"
 
-    console.log("⚙️ Run started:", run.id);
+        If you don't know the answer, respond with:
+        "I'm not sure, but you can contact our team directly for more help!"
 
-    // Step 4: Wait for the run to complete
-    let runStatus;
-    do {
-      await new Promise((r) => setTimeout(r, 1000));
-      runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-      console.log("⏳ Status:", runStatus.status);
-    } while (runStatus.status !== "completed");
+        Avoid using overly technical jargon unless the user requests it.
+        `;
 
-    // Step 5: Retrieve assistant message
-    const messages = await openai.beta.threads.messages.list(thread.id);
-    const lastMessage = messages.data.find(msg => msg.role === "assistant");
-    const reply = lastMessage?.content[0]?.text?.value;
+        const response = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+                {
+                    role: "system",
+                    content: instructions
+                },
+                {
+                    role: "user",
+                    content: message
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: 150
+        });
 
-    console.log("💬 Assistant Reply:", reply);
-
-    if (!reply) throw new Error("No reply returned from assistant.");
-    res.json({ reply });
-  } catch (error) {
-    console.error("❌ Error:", error.message);
-    res.status(500).json({ error: "Assistant failed to respond." });
-  }
+        res.json({ reply: response.choices[0].message.content });
+    } catch (error) {
+        console.error('OpenAI Error:', error);
+        res.status(500).json({ error: 'Error processing your request' });
+    }
 });
 
+// Start server
 app.listen(port, () => {
-  console.log(`🟢 Webburns Assistant is running on port ${port}`);
+    console.log(`Server running on port ${port}`);
 });
