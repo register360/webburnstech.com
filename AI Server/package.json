@@ -16,9 +16,10 @@
   },
   "devDependencies": {
     "nodemon": "^2.0.20"
-  }
+  },
   "engines": {
     "node": ">=18.0.0"
+  },
   "keywords": [
     "AI",
     "chatbot",
