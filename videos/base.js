@@ -384,3 +384,109 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+document.addEventListener('DOMContentLoaded', function() {
+    const aiBtn = document.getElementById('aiAssistantBtn');
+    const aiChat = document.getElementById('aiAssistant');
+    const closeBtn = document.getElementById('aiCloseBtn');
+    const messagesContainer = document.getElementById('aiMessages');
+    const userInput = document.getElementById('aiUserInput');
+    const sendBtn = document.getElementById('aiSendBtn');
+    
+    // Backend API URL
+    const API_URL = 'https://ai-assistant-z37c.onrender.com/api/ai-assistant';
+    
+    // Open/close chat
+    aiBtn.addEventListener('click', () => {
+        aiChat.classList.toggle('active');
+        if (aiChat.classList.contains('active')) {
+            if (messagesContainer.children.length === 0) {
+                addMessage('ai', "Hi! I'm Webburns Assistant. How can I help you today?");
+            }
+            userInput.focus();
+        }
+    });
+    
+    closeBtn.addEventListener('click', () => {
+        aiChat.classList.remove('active');
+    });
+    
+    // Send message
+    sendBtn.addEventListener('click', sendMessage);
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+    
+    async function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message) return;
+        
+        addMessage('user', message);
+        userInput.value = '';
+        setLoadingState(true);
+        
+        try {
+            const response = await fetch('https://ai-assistant-z37c.onrender.com/api/ai-assistant', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ message })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.reply) {
+                throw new Error('Empty response from server');
+            }
+            
+            addMessage('ai', data.reply);
+            
+        } catch (error) {
+            console.error('API Error:', error);
+            addMessage('ai', getErrorMessage(error));
+        } finally {
+            setLoadingState(false);
+        }
+    }
+    
+    function addMessage(sender, text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        messageDiv.textContent = text;
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function setLoadingState(isLoading) {
+        if (isLoading) {
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'message ai-message typing-indicator';
+            typingIndicator.id = 'typing-indicator';
+            typingIndicator.innerHTML = '<span></span><span></span><span></span>';
+            messagesContainer.appendChild(typingIndicator);
+        } else {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) messagesContainer.removeChild(indicator);
+        }
+        
+        userInput.disabled = isLoading;
+        sendBtn.disabled = isLoading;
+        if (!isLoading) userInput.focus();
+    }
+    
+    function getErrorMessage(error) {
+        // Customize error messages based on error type
+        if (error.message.includes('Failed to fetch')) {
+            return "Connection failed. Please check your network and try again.";
+        } else if (error.message.includes('Server returned')) {
+            return "Our servers are busy. Please try again in a moment.";
+        } else {
+            return "Sorry, I'm having trouble connecting. Please try again later.";
+        }
+    }
+});
