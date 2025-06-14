@@ -1,35 +1,56 @@
-const assistantId = "asst_B6TcUnUsM6glZm4exDaAM5Bb"; // From your screenshot
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { OpenAI } = require('openai');
 
+// ✅ Define app before using it
+const app = express();
+const port = process.env.PORT;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Initialize OpenAI SDK
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+const assistantId = 'asst_B6TcUnUsM6gUZm4cxDaAN5Bb'; // your assistant ID
+
+// AI Assistant endpoint
 app.post('/api/ai-assistant', async (req, res) => {
+  const userInput = req.body.message;
+
   try {
-    // Create a thread
     const thread = await openai.beta.threads.create();
-    
-    // Add user message
+
     await openai.beta.threads.messages.create(thread.id, {
       role: "user",
-      content: req.body.message
+      content: userInput
     });
 
-    // Run assistant
     const run = await openai.beta.threads.runs.create(thread.id, {
       assistant_id: assistantId
     });
 
-    // Wait for completion
     let runStatus;
     do {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((r) => setTimeout(r, 1500));
       runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
     } while (runStatus.status !== "completed");
 
-    // Get responses
     const messages = await openai.beta.threads.messages.list(thread.id);
-    const reply = messages.data[0].content[0].text.value;
+    const lastMessage = messages.data.find(msg => msg.role === "assistant");
 
-    res.json({ reply });
+    res.json({ reply: lastMessage?.content[0]?.text?.value || "No response." });
   } catch (error) {
-    console.error("Assistant error:", error);
-    res.json({ reply: "Please contact our team directly for help!" });
+    console.error('OpenAI Assistant Error:', error.message);
+    res.status(500).json({ error: 'Assistant failed to respond.' });
   }
+});
+
+// Start server
+app.listen(port, () => {
+  console.log(`Webburns Assistant is running on port ${port}`);
 });
