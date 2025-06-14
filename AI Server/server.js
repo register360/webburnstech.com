@@ -1,42 +1,55 @@
+require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const fetch = require('node-fetch');
+const { CohereClient } = require('cohere-ai');
 
 const app = express();
-const port = process.env.PORT;
+const port = process.env.PORT || 3000;
 
-app.use(cors());
+// Initialize Cohere client
+const cohere = new CohereClient({
+  token: process.env.COHERE_API_KEY,
+});
+
+// System prompt matching your requirements
+const SYSTEM_PROMPT = `
+You are Webburns Assistant, an AI chatbot for Webburns Tech. Follow these rules:
+1. Specialize in web development, mobile apps, and UI/UX design
+2. Never say "I'm not sure" - instead guide users to contact@webburns.tech
+3. Use simple, friendly language
+4. Keep responses under 3 sentences
+`.trim();
+
 app.use(express.json());
+app.use(express.static('public'));
 
-// Replace with your Hugging Face model (optional: add your own token for higher limits)
-const HF_MODEL_URL = 'https://api-inference.huggingface.co/models/google/flan-t5-small';
-const HF_API_KEY = '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'; // optional: 'hf_abc123...'
-
+// AI Assistant Endpoint
 app.post('/api/ai-assistant', async (req, res) => {
-  const userMessage = req.body.message;
-
   try {
-    const response = await fetch(HF_MODEL_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(HF_API_KEY && { 'Authorization': `Bearer ${HF_API_KEY}` })
-      },
-      body: JSON.stringify({
-        inputs: `Answer this: ${userMessage}`
-      })
+    const { message } = req.body;
+    
+    if (!message?.trim()) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const response = await cohere.generate({
+      prompt: `${SYSTEM_PROMPT}\n\nUser: ${message}\nAssistant:`,
+      maxTokens: 100,
+      temperature: 0.7,
     });
 
-    const data = await response.json();
-    const reply = data?.[0]?.generated_text || "I'm not sure how to answer that.";
+    const reply = response.generations[0]?.text.trim() || 
+      "Please email contact@webburns.tech for help.";
 
     res.json({ reply });
+
   } catch (error) {
-    console.error('Hugging Face Error:', error.message);
-    res.status(500).json({ reply: "Sorry, I had trouble responding." });
+    console.error("Cohere error:", error);
+    res.json({ 
+      reply: "Our AI is busy. Email contact@webburns.tech for immediate help."
+    });
   }
 });
 
 app.listen(port, () => {
-  console.log(`🧠 Hugging Face Assistant running on http://localhost:${port}`);
+  console.log(`Server running on port ${port}`);
 });
