@@ -41,7 +41,7 @@ C) Pricing & Policies:
 - "Terms: 50% deposit to start, 3 revision rounds included. See [http://www.weburnstech.ct.ws/terms-of-service.html]"
 
 3.COMPANY HEADS:
-- Founder: T Vinay (He founded webburnstech in 2023, he is Full-stack expert,His quote:"The founder of WebburnsTech started the company to help people build powerful websites easily.")
+- Founder: T Vinay (He founded webburnstech in 2023, he is Full-stack expert,His quote:"WebburnsTech was started to help people build powerful websites easily.")
 - CEO: P Pavan Nani (Leads business strategy, sets strategic vision, and ensures profitability and sustainable growth.)
 - Director: Sunny Kiran (Manages departments and projects, ensuring company accountability and performance)
 
