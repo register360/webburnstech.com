@@ -4,9 +4,16 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
-
 const app = express();
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('Created uploads directory');
+}
 
 // Middleware
 app.use(cors({
@@ -135,6 +142,30 @@ app.post('/api/applications', (req, res) => {
 
 // Serve static files (for uploaded documents)
 app.use('/uploads', express.static('uploads'));
+
+ // Delete files older than 30 days
+const cleanupInterval = setInterval(() => {
+    fs.readdir(uploadsDir, (err, files) => {
+        if (err) return;
+        
+        files.forEach(file => {
+            const filePath = path.join(uploadsDir, file);
+            fs.stat(filePath, (err, stat) => {
+                if (err) return;
+                
+                const now = new Date().getTime();
+                const fileAge = now - stat.mtime.getTime();
+                const daysOld = fileAge / (1000 * 60 * 60 * 24);
+                
+                if (daysOld > 30) {
+                    fs.unlink(filePath, err => {
+                        if (err) console.error('Error deleting file:', err);
+                    });
+                }
+            });
+        });
+    });
+}, 24 * 60 * 60 * 1000); // Run daily
 
 // Basic route for testing
 app.get('/', (req, res) => {
