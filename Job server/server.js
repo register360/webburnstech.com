@@ -92,23 +92,31 @@ app.post('/api/applications', (req, res) => {
             if (err.code === 'LIMIT_FILE_SIZE') {
                 return res.status(400).json({ error: 'File size exceeds 5MB limit' });
             }
-            return res.status(500).json({ error: 'File upload error' });
+            return res.status(500).json({ error: 'File upload error: ' + err.message });
         }
 
         try {
-            const { personalInfo, education, documents } = req.body;
-            
-            // Parse the JSON strings if they were sent as strings
-            const personalData = typeof personalInfo === 'string' ? JSON.parse(personalInfo) : personalInfo;
-            const educationData = typeof education === 'string' ? JSON.parse(education) : education;
-            const documentsData = typeof documents === 'string' ? JSON.parse(documents) : documents;
+            // Check if files were uploaded
+            if (!req.files || !req.files['resume']) {
+                return res.status(400).json({ error: 'Resume is required' });
+            }
+
+            // Parse the request body
+            const personalData = req.body;
+            const educationData = JSON.parse(req.body.education || '[]');
+            const documentsData = {
+                position: req.body.position,
+                hearAbout: req.body.hearAbout,
+                portfolioLink: req.body.portfolioLink,
+                additionalInfo: req.body.additionalInfo
+            };
 
             // Create new application
             const newApplication = new Application({
                 ...personalData,
                 education: educationData,
                 ...documentsData,
-                resume: req.files['resume'] ? req.files['resume'][0].path : null,
+                resume: req.files['resume'][0].path,
                 coverLetter: req.files['coverLetter'] ? req.files['coverLetter'][0].path : null
             });
 
@@ -120,7 +128,7 @@ app.post('/api/applications', (req, res) => {
             });
         } catch (error) {
             console.error('Error saving application:', error);
-            res.status(500).json({ error: 'Failed to submit application' });
+            res.status(500).json({ error: 'Failed to submit application: ' + error.message });
         }
     });
 });
