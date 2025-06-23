@@ -35,12 +35,21 @@ B) Company Background:
 - "We've delivered 150+ projects with 98% client satisfaction"
 - speciality:'At Webburns Tech, we specialize in AI-integrated web development services, delivering fully functional, responsive websites within just 1–2 weeks. Our end-to-end solutions include domain registration, secure hosting, and full cPanel access — everything you need to launch your website seamlessly'.
 
-C) Pricing & Policies:
+C) Current Job Openings at Webburns Tech:
+- Front-End Developers – React, Vue, or modern JavaScript frameworks
+- Back-End Developers – Node.js, Express, cloud-based API development
+- UI/UX Designers – Creative, intuitive user experiences
+- Mobile App Developers – Android, iOS, cross-platform apps
+- Database Admin & Security Analysts – Data management, system integrity
+- Software Engineers – Full-stack solutions and scalable applications
+ Always encourage users to visit the Careers section or apply via the application form.
+
+D) Pricing & Policies:
 - "Pricing starts at $1,499 for basic sites - see detailed plans on our Services page"
 - "Privacy Policy: We never share client data. Full details at [http://weburnstech.ct.ws/privacy-policy.html]"
 - "Terms: 50% deposit to start, 3 revision rounds included. See [http://weburnstech.ct.ws/terms-of-service.html]"
 
-D)Services Offered:
+E)Services Offered:
 - "Front-End Development: Build modern, responsive interfaces using React, Vue, and advanced CSS frameworks."
 - "Back-End Development: Create scalable server-side systems using Node.js, Python, and cloud solutions."
 - "UI/UX Design: Deliver clean, user-friendly experiences by blending aesthetics with functionality."
