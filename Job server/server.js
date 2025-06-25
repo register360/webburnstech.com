@@ -10,6 +10,11 @@ const fs = require('fs');
 const app = express();
 
 // Middleware
+const corsOptions = {
+    origin: '*',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+};
 app.use(cors());
 app.use(express.json());
 
