@@ -1,82 +1,74 @@
-require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cors = require('cors');
 const multer = require('multer');
-const fs = require('fs');
 const path = require('path');
+const nodemailer = require('nodemailer');
+const cors = require('cors');
+const fs = require('fs');
+
+// Initialize Express app
 const app = express();
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('Created uploads directory');
-}
-
 // Middleware
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST']
-}));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cors());
+app.use(express.json());
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://vinay:vinay1234567@cluster0.uxcfxxy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
-
-mongoose.connect(MONGODB_URI)
-
+mongoose.connect('mongodb+srv://vinay:vinay1234567@cluster0.uxcfxxy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
 .then(() => console.log('Connected to MongoDB'))
 .catch(err => console.error('MongoDB connection error:', err));
 
-// Define Application Schema
+// Define Mongoose Schemas
+const educationSchema = new mongoose.Schema({
+    level: { type: String, required: true },
+    institution: { type: String, required: true },
+    fieldOfStudy: { type: String, required: true },
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
+    percentage: { type: String, required: true }
+});
+
 const applicationSchema = new mongoose.Schema({
-    // Personal Information
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
-    fatherName: { type: String, required: true },
-    motherName: { type: String, required: true },
-    dob: { type: Date, required: true },
-    gender: { type: String, required: true },
-    email: { type: String, required: true },
-    phone: { type: String, required: true },
-    address: { type: String, required: true },
-    city: { type: String, required: true },
-    state: { type: String, required: true },
-    zipCode: { type: String, required: true },
-    country: { type: String, required: true },
-    
-    // Education
-    education: [{
-        level: { type: String, required: true },
-        institution: { type: String, required: true },
-        fieldOfStudy: { type: String, required: true },
-        startDate: { type: Date, required: true },
-        endDate: { type: Date, required: true },
-        percentage: { type: String, required: true }
-    }],
-    
-    // Documents
-    position: { type: String, required: true },
-    hearAbout: { type: String, required: true },
-    resume: { type: String, required: true },
-    coverLetter: { type: String },
-    portfolioLink: { type: String },
-    additionalInfo: { type: String },
-    
-    // Metadata
-    submissionDate: { type: Date, default: Date.now },
-    status: { type: String, default: 'Pending' }
+    personalInfo: {
+        firstName: { type: String, required: true },
+        lastName: { type: String, required: true },
+        fatherName: { type: String, required: true },
+        motherName: { type: String, required: true },
+        dob: { type: Date, required: true },
+        gender: { type: String, required: true },
+        email: { type: String, required: true },
+        phone: { type: String, required: true },
+        address: { type: String, required: true },
+        city: { type: String, required: true },
+        state: { type: String, required: true },
+        zipCode: { type: String, required: true },
+        country: { type: String, required: true }
+    },
+    education: [educationSchema],
+    jobInfo: {
+        position: { type: String, required: true },
+        hearAbout: { type: String, required: true },
+        portfolioLink: { type: String },
+        additionalInfo: { type: String },
+        resumePath: { type: String, required: true },
+        coverLetterPath: { type: String }
+    },
+    applicationDate: { type: Date, default: Date.now }
 });
 
 const Application = mongoose.model('Application', applicationSchema);
 
-// Configure Multer for file uploads
+// Multer configuration for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        const uploadDir = path.join(__dirname, 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -86,96 +78,143 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-}).fields([
-    { name: 'resume', maxCount: 1 },
-    { name: 'coverLetter', maxCount: 1 }
-]);
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        const filetypes = /pdf|doc|docx/;
+        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = filetypes.test(file.mimetype);
 
-// API Endpoint to handle form submission
-app.post('/api/applications', (req, res) => {
-    upload(req, res, async (err) => {
-        if (err) {
-            if (err.code === 'LIMIT_FILE_SIZE') {
-                return res.status(400).json({ error: 'File size exceeds 5MB limit' });
-            }
-            return res.status(500).json({ error: 'File upload error: ' + err.message });
+        if (extname && mimetype) {
+            return cb(null, true);
+        } else {
+            cb(new Error('Only PDF and Word documents are allowed!'));
         }
-
-        try {
-            // Check if files were uploaded
-            if (!req.files || !req.files['resume']) {
-                return res.status(400).json({ error: 'Resume is required' });
-            }
-
-            // Parse the request body
-            const personalData = req.body;
-            const educationData = JSON.parse(req.body.education || '[]');
-            const documentsData = {
-                position: req.body.position,
-                hearAbout: req.body.hearAbout,
-                portfolioLink: req.body.portfolioLink,
-                additionalInfo: req.body.additionalInfo
-            };
-
-            // Create new application
-            const newApplication = new Application({
-                ...personalData,
-                education: educationData,
-                ...documentsData,
-                resume: req.files['resume'][0].path,
-                coverLetter: req.files['coverLetter'] ? req.files['coverLetter'][0].path : null
-            });
-
-            await newApplication.save();
-            
-            res.status(201).json({ 
-                message: 'Application submitted successfully',
-                applicationId: newApplication._id
-            });
-        } catch (error) {
-            console.error('Error saving application:', error);
-            res.status(500).json({ error: 'Failed to submit application: ' + error.message });
-        }
-    });
+    }
 });
 
-// Serve static files (for uploaded documents)
-app.use('/uploads', express.static('uploads'));
+// Nodemailer transporter configuration
+const transporter = nodemailer.createTransport({
+    service: 'Gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+        user: 'webburnstech@gmail.com',
+        pass: 'uqtnttdliphtxhgh'
+    }
+});
 
- // Delete files older than 30 days
-const cleanupInterval = setInterval(() => {
-    fs.readdir(uploadsDir, (err, files) => {
-        if (err) return;
-        
-        files.forEach(file => {
-            const filePath = path.join(uploadsDir, file);
-            fs.stat(filePath, (err, stat) => {
-                if (err) return;
-                
-                const now = new Date().getTime();
-                const fileAge = now - stat.mtime.getTime();
-                const daysOld = fileAge / (1000 * 60 * 60 * 24);
-                
-                if (daysOld > 30) {
-                    fs.unlink(filePath, err => {
-                        if (err) console.error('Error deleting file:', err);
-                    });
-                }
-            });
+// Application submission endpoint
+app.post('/api/applications', upload.fields([
+    { name: 'resume', maxCount: 1 },
+    { name: 'coverLetter', maxCount: 1 }
+]), async (req, res) => {
+    try {
+        // Parse the JSON data from the form
+        const personalInfo = JSON.parse(req.body.personalInfo);
+        const education = JSON.parse(req.body.education);
+        const documents = JSON.parse(req.body.documents);
+
+        // Get file paths
+        const resumePath = req.files['resume'] ? req.files['resume'][0].path : null;
+        const coverLetterPath = req.files['coverLetter'] ? req.files['coverLetter'][0].path : null;
+
+        if (!resumePath) {
+            return res.status(400).json({ error: 'Resume is required' });
+        }
+
+        // Create new application document
+        const newApplication = new Application({
+            personalInfo,
+            education,
+            jobInfo: {
+                position: documents.position,
+                hearAbout: documents.hearAbout,
+                portfolioLink: documents.portfolioLink,
+                additionalInfo: documents.additionalInfo,
+                resumePath,
+                coverLetterPath
+            }
         });
-    });
-}, 24 * 60 * 60 * 1000); // Run daily
 
-// Basic route for testing
-app.get('/', (req, res) => {
-    res.send('Webburns Tech Job Application API');
+        // Save to database
+        const savedApplication = await newApplication.save();
+
+        // Send confirmation email
+        const mailOptions = {
+            from: '"Webburns Tech" <webburnstech@gmail.com>',
+            to: personalInfo.email,
+            subject: 'Your Application Has Been Received',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #2c3e50;">Thank you for applying to Webburns Tech!</h2>
+                    <p>Dear ${personalInfo.firstName},</p>
+                    <p>We've successfully received your application for the <strong>${documents.position}</strong> position.</p>
+                    <p>Your application reference ID is: <strong>${savedApplication._id}</strong></p>
+                    <p>Our HR team will review your application and contact you if your qualifications match our requirements.</p>
+                    <p>Thank you for your interest in joining our team!</p>
+                    <br>
+                    <p>Best regards,</p>
+                    <p>The Webburns Tech Team</p>
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                        <small style="color: #7f8c8d;">
+                            This is an automated message. Please do not reply directly to this email.
+                        </small>
+                    </div>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        // Send success response
+        res.status(201).json({
+            success: true,
+            message: 'Application submitted successfully',
+            applicationId: savedApplication._id,
+            firstName: personalInfo.firstName
+        });
+
+    } catch (error) {
+        console.error('Error submitting application:', error);
+        
+        // Clean up uploaded files if there was an error
+        if (req.files) {
+            Object.values(req.files).forEach(fileArray => {
+                fileArray.forEach(file => {
+                    if (fs.existsSync(file.path)) {
+                        fs.unlinkSync(file.path);
+                    }
+                });
+            });
+        }
+
+        res.status(500).json({ 
+            error: 'An error occurred while processing your application',
+            details: error.message 
+        });
+    }
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).json({ error: 'Something broke!' });
+    
+    if (err instanceof multer.MulterError) {
+        // A Multer error occurred when uploading
+        return res.status(400).json({ 
+            error: 'File upload error',
+            details: err.message 
+        });
+    } else if (err) {
+        // An unknown error occurred
+        return res.status(500).json({ 
+            error: 'Internal server error',
+            details: err.message 
+        });
+    }
+    
+    next();
 });
 
 // Start server
