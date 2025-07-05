@@ -128,7 +128,7 @@ app.post('/api/ai-assistant', async (req, res) => {
     const response = await cohere.generate({
       prompt: `${SYSTEM_PROMPT}\n\nUser: ${message}\nAssistant:`,
       maxTokens: 100,
-      temperature: 0.7,
+      temperature: 0.3,
     });
 
     const reply = response.generations[0]?.text.trim() || 
