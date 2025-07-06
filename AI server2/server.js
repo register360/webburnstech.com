@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { MistralClient } = require('@mistralai/mistralai');
+const MistralClient = require('@mistralai/mistralai').default
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
@@ -170,7 +170,7 @@ app.post('/api/ai-assistant', async (req, res) => {
         { role: 'user', content: message }
       ],
       temperature: 0.7,
-      maxTokens: 100
+      max_tokens: 100
     });
 
     const reply = chatResponse.choices[0]?.message?.content.trim() || 
