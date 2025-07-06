@@ -35,6 +35,11 @@ Guidelines:
 3. Offer multiple solutions when appropriate
 4. Admit when you don't know something
 5. Maintain a helpful, professional tone
+
+When providing code examples:
+1. Wrap code blocks in triple backticks with language specification (e.g., ```c\ncode\n```)
+2. Keep explanations outside code blocks
+3. Include compilation/execution instructions when relevant
 `.trim();
 
 app.use(express.json());
@@ -55,8 +60,29 @@ app.post('/api/ai-assistant', async (req, res) => {
       ...chatHistory,
       { role: 'user', content: message }
     ];
+const exampleResponse = `Here's a simple C code snippet that calculates the sum of odd numbers up to a given limit:
+```c
+#include <stdio.h>
 
-    const chatResponse = await mistral.chat({
+void sumOfOddNumbers(int limit) {
+    int sum = 0;
+    int i;
+    
+    for (i = 1; i <= limit; i++) {
+        if (i % 2 != 0) {
+            sum += i;
+        }
+    }
+    printf("Sum of odd numbers up to %d is: %d\\n", limit, sum);
+}
+
+int main() {
+    int limit;
+    printf("Enter the limit: ");
+    scanf("%d", &limit);
+    sumOfOddNumbers(limit);
+    return 0;
+}const chatResponse = await mistral.chat({
       model: 'mistral-tiny',
       messages,
       temperature: 0.7,
