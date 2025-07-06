@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const MistralClient = require('@mistralai/mistralai').default
+const MistralClient = require('@mistralai/mistralai').default;
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
