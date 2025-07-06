@@ -38,10 +38,10 @@ Guidelines:
 
 When providing code examples:
 1. Wrap code blocks in triple backticks with language specification (e.g., Example for C code:
-   `c
+   'c
    #include <stdio.h>
    int main() { return 0; }
-    `)
+    ')
 2. Keep explanations outside code blocks
 3. Include compilation/execution instructions when relevant
 `.trim();
