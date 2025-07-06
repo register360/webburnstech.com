@@ -1,12 +1,16 @@
 require('dotenv').config();
 const express = require('express');
 const MistralClient = require('@mistralai/mistralai').default;
+const Replicate = require('replicate');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Initialize Mistral client
+// Initialize clients
 const mistral = new MistralClient(process.env.MISTRAL_API_KEY);
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
 
 app.use(cors({
   origin: '*',
@@ -51,7 +55,7 @@ You can help users with:
 - Creative writing, story generation, summaries, professional emails.
 - Productivity advice, language translation, SEO tips, resume building, etc.
 - Step-by-step guidance and explanations.
-- Image generation: respond accordingly when users request visual outputs (e.g. logos, scenes, designs).
+- Image generation using Stable Diffusion/SDXL (via Replicate API).
 - Help with productivity, study tips, career advice, and technical design
 - Translate between languages and explain grammar
 - Generate image prompts and ideas
@@ -59,9 +63,10 @@ You can help users with:
 ---
 
 🖼️ 5. IMAGE GENERATION:
-- If asked to "generate an image", respond with: "Sure! What kind of image would you like me to generate?"
-- Accept prompts like: "Make a logo", "Generate a futuristic city", "Create a cartoon character", etc.
-- Reply clearly and pass the text prompt to the image generation API if supported.
+- If asked to "generate an image", respond with: "I can create images using Stable Diffusion. Please describe what you'd like in detail (e.g., 'a futuristic cityscape at night with neon lights')."
+- For image generation requests, you MUST respond with exactly: "IMAGE_GENERATION_REQUEST:[user's prompt]"
+- Accept prompts like: "Make a logo for a tech startup", "Generate a fantasy landscape with mountains", "Create a cartoon character with blue hair", etc.
+- You can suggest improvements to prompts for better results.
 
 ---
 
@@ -120,12 +125,54 @@ app.post('/api/ai-assistant', async (req, res) => {
     const reply = chatResponse.choices[0]?.message?.content.trim() || 
       "Please email contact@webburns.tech for help.";
 
+    // Check if this is an image generation request
+    if (reply.startsWith("IMAGE_GENERATION_REQUEST:")) {
+      return res.json({ 
+        reply,
+        isImageRequest: true 
+      });
+    }
+
     res.json({ reply });
 
   } catch (error) {
     console.error("Mistral error:", error);
     res.json({ 
       reply: "Our AI is busy. Email contact@webburns.tech for immediate help."
+    });
+  }
+});
+
+// Image Generation Endpoint
+app.post('/api/generate-image', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    
+    if (!prompt?.trim()) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    const output = await replicate.run(
+      "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+      {
+        input: {
+          prompt: prompt,
+          negative_prompt: "blurry, low quality, distorted, ugly, text, watermark",
+          width: 1024,
+          height: 1024,
+          num_outputs: 1,
+          guidance_scale: 7.5,
+          num_inference_steps: 50
+        }
+      }
+    );
+
+    res.json({ imageUrl: output[0] });
+
+  } catch (error) {
+    console.error("Replicate error:", error);
+    res.status(500).json({ 
+      error: "Failed to generate image. Please try again with a different prompt."
     });
   }
 });
