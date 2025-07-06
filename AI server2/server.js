@@ -37,7 +37,11 @@ Guidelines:
 5. Maintain a helpful, professional tone
 
 When providing code examples:
-1. Wrap code blocks in triple backticks with language specification (e.g., (e.g., \`\`\`c\\ncode\\n\`\`\`)
+1. Wrap code blocks in triple backticks with language specification (e.g., Example for C code:
+   \`\`\`c
+   #include <stdio.h>
+   int main() { return 0; }
+   \`\`\`)
 2. Keep explanations outside code blocks
 3. Include compilation/execution instructions when relevant
 `.trim();
@@ -60,22 +64,6 @@ app.post('/api/ai-assistant', async (req, res) => {
       ...chatHistory,
       { role: 'user', content: message }
     ];
-const exampleResponse = `Here's a simple C code snippet that calculates the sum of odd numbers up to a given limit:
-```c
-#include <stdio.h>
-
-void sumOfOddNumbers(int limit) {
-    int sum = 0;
-    int i;
-    
-    for (i = 1; i <= limit; i++) {
-        if (i % 2 != 0) {
-            sum += i;
-        }
-    }
-    printf("Sum of odd numbers up to %d is: %d\\n", limit, sum);
-}
-
 int main() {
     int limit;
     printf("Enter the limit: ");
