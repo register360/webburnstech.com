@@ -150,9 +150,9 @@ app.post('/api/applications', upload.fields([
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #2c3e50;">
     <h2 style="color: #2c3e50;">Thank you for applying to Webburns Tech!</h2>
-    <p>Dear ${personalInfo.firstName},</p>
+    <p>Dear ${personalInfo.firstName} ${personalInfo.lastName},</p>
     <p>We are pleased to inform you that we have received your application for the <strong>${documents.position}</strong> role at <strong>Webburns Tech</strong>.</p>
-    <p>Your unique application reference ID is: <strong>${savedApplication._id}</strong>. Please keep this ID for future correspondence.</p>
+    <p><h3>Your unique application reference ID is: <strong>${savedApplication._id}</strong><h3>. Please keep this ID for future correspondence.</p>
     <p>Our hiring team is currently reviewing all applications. If your qualifications match our current requirements, we will reach out to you for the next steps in the selection process. This may include a technical assessment, interview, or further documentation.</p>
     <p>We appreciate the time and effort you took to apply and your interest in joining our innovative and growing team. At Webburns Tech, we value passion, creativity, and dedication, and we’re excited to learn more about what you bring to the table.</p>
     <p>If you have any questions, feel free to contact us via our <a href="https://webburnstech.com/contact" style="color: #2980b9;">Contact Page</a>.</p>
