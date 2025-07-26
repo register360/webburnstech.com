@@ -3,18 +3,42 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const natural = require('natural');
-const aposToLexForm = require('apos-to-lex-form');
-const SpellCorrector = require('spelling-corrector');
 const stopword = require('stopword');
 const cors = require('cors');
-
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
 // NLP Setup
-const spellCorrector = new SpellCorrector();
-spellCorrector.loadDictionary();
+const tokenizer = new natural.WordTokenizer();
+const stemmer = natural.PorterStemmer;
+
+// Enhanced text preprocessing without apos-to-lex-form
+function preprocessText(text) {
+  // Convert to lowercase
+  const lowerText = text.toLowerCase();
+  
+  // Remove contractions manually (simple replacement)
+  const noContractions = lowerText
+    .replace(/'s\b/g, '')
+    .replace(/'re\b/g, ' are')
+    .replace(/'ll\b/g, ' will')
+    .replace(/'ve\b/g, ' have')
+    .replace(/'d\b/g, ' would')
+    .replace(/'m\b/g, ' am')
+    .replace(/\bcan't\b/g, 'cannot')
+    .replace(/\bn't\b/g, ' not');
+  
+  // Remove punctuation and special chars
+  const alphaOnly = noContractions.replace(/[^a-zA-Z\s]+/g, '');
+  
+  // Tokenize and stem
+  const tokens = tokenizer.tokenize(alphaOnly);
+  const stemmed = tokens.map(token => stemmer.stem(token));
+  
+  // Remove stopwords
+  return removeStopwords(stemmed);
+}
 
 // Enhanced AI Response Database
 const intentSchema = new mongoose.Schema({
