@@ -16,7 +16,7 @@
     "replicate": "^0.25.0",
     "openai": "^4.0.0",
     "natural": "^5.2.3",
-    "apos-to-lex-form": "^1.0.8",
+    "apos-to-lex-form": "^1.0.7",
     "spelling-corrector": "^1.0.10",
     "stopword": "^2.0.1"
   },
