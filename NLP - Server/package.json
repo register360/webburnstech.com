@@ -16,7 +16,6 @@
     "replicate": "^0.25.0",
     "openai": "^4.0.0",
     "natural": "^5.2.3",
-    "spelling-corrector": "^1.0.10",
     "stopword": "^2.0.1"
   },
   "devDependencies": {
