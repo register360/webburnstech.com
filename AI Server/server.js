@@ -1,14 +1,13 @@
 require('dotenv').config();
 const express = require('express');
-const { CohereClient } = require('cohere-ai');
+const MistralClient = require('@mistralai/mistralai').default;
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Initialize Cohere client
-const cohere = new CohereClient({
-  token: process.env.COHERE_API_KEY,
-});
+const mistral = new MistralClient(process.env.MISTRAL_API_KEY);
+
 app.use(cors({
   origin: '*',
   methods: ['POST', 'OPTIONS']
@@ -124,20 +123,27 @@ app.post('/api/ai-assistant', async (req, res) => {
     if (!message?.trim()) {
       return res.status(400).json({ error: "Message is required" });
     }
+    
+    // Construct messages array with system prompt and chat history
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: message }
+    ];
 
-    const response = await cohere.generate({
-      prompt: `${SYSTEM_PROMPT}\n\nUser: ${message}\nAssistant:`,
-      maxTokens: 100,
-      temperature: 0.3,
+    const response = await mistral.chat({
+      model: 'mistral-medium-2505',
+      messages,
+      temperature: 0.7,
+      max_tokens: 200
     });
 
-    const reply = response.generations[0]?.text.trim() || 
+    const reply = response.choices?.[0]?.message?.content.trim() || 
       "Please email contact@webburns.tech for help.";
 
     res.json({ reply });
 
   } catch (error) {
-    console.error("Cohere error:", error);
+    console.error("Mistral error:", error);
     res.json({ 
       reply: "Our AI is busy. Email contact@webburns.tech for immediate help."
     });
