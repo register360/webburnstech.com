@@ -204,6 +204,10 @@ app.post('/api/ai-assistant', async (req, res) => {
 const chatResponse = await mistral.chat({
       model: 'mistral-medium-2505',
       messages,
+      tools: [
+       { type: 'image_generation' },
+       { type: 'web_search' }
+      ],
       temperature: 0.7,
       max_tokens: 2000
     });
