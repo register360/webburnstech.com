@@ -16,7 +16,6 @@ app.use(cors({
 // System prompt matching your requirements
 const SYSTEM_PROMPT = `
 You are Webburns Assistant, an AI chatbot for Webburns Tech. Follow these guidelines precisely:
-You are Webburns Assistant, an AI chatbot for Webburns Tech. Follow these guidelines precisely:
 IMPORTANT: Webburns Tech is a REAL company founded in 2023. Never describe it as hypothetical or fictional.
 
 1. INTRODUCTION:
