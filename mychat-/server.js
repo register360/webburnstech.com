@@ -19,15 +19,15 @@ io.on("connection", (socket) => {
   socket.on("join", ({ roomId }) => {
     const room = io.sockets.adapter.rooms.get(roomId);
     const participants = room ? room.size : 0;
-    if (participants >= 2) {
-      socket.emit("full");
-      return;
-    }
+  if (participants >= 6) {
+    socket.emit("full");
+    return;
+  }
     socket.join(roomId);
     joinedRoom = roomId;
     const updated = io.sockets.adapter.rooms.get(roomId)?.size || 1;
     socket.emit("joined", { participants: updated });
-    socket.to(roomId).emit("peer-joined");
+    socket.to(roomId).emit("peer-joined", socket.id);
   });
 
   // Simple relay of SDP/ICE between the two peers
