@@ -202,7 +202,7 @@
     joinBtn.onclick = async () => {
       roomId = roomIdInput.value.trim();
       if (!roomId) return alert('Enter a Room ID');
-      socket = io();
+      socket = io("https://call-server-o6yk.onrender.com");
       socket.emit('join', { roomId });
 
       socket.on('joined', async ({ participants }) => {
