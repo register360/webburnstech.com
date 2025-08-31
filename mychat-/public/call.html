@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Webburns Chat — Voice & Video</title>
+  <style>
+    :root { --bg:#0b1220; --card:#121a2b; --accent:#5cc8ff; --muted:#9fb3c8; }
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:#e6eef7}
+    header{padding:14px 18px;border-bottom:1px solid #1e2942;background:#0d1526;display:flex;align-items:center;gap:12px}
+    header h1{font-size:16px;margin:0;font-weight:600}
+    main{display:grid;grid-template-columns:300px 1fr;min-height:calc(100dvh - 54px)}
+    aside{border-right:1px solid #1e2942;padding:14px;background:#0e172a}
+    .card{background:var(--card);border:1px solid #1e2942;border-radius:16px}
+    .panel{padding:14px}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input, select, button{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #223152;background:#0f1a2f;color:#e6eef7}
+    input::placeholder{color:#7e8da0}
+    button{cursor:pointer;border:0;background:linear-gradient(180deg,#3aa9ff,#1f7cd8);color:white;font-weight:600;box-shadow:0 6px 16px rgba(31,124,216,.35)}
+    button.ghost{background:#0f1a2f;border:1px solid #223152;box-shadow:none}
+    button.danger{background:linear-gradient(180deg,#ff5577,#d81f4b)}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .row{display:flex;gap:10px}
+    .row > *{flex:1}
+    .stack{display:grid;gap:10px}
+    .videos{padding:14px;display:grid;gap:14px}
+    .videos .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    video{width:100%;aspect-ratio:16/9;background:#0a1020;border-radius:16px;border:1px solid #1e2942}
+    .toolbar{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+    .hint{font-size:12px;color:var(--muted)}
+    footer{padding:10px 14px;color:var(--muted);font-size:12px;border-top:1px solid #1e2942}
+    @media (max-width: 900px){ main{grid-template-columns:1fr} aside{order:2} }
+  </style>
+</head>
+<body>
+  <header>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 7a3 3 0 0 1 3-3h3l2 2h5a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-5l-2 2H7a3 3 0 0 1-3-3V7Z" stroke="#5cc8ff" stroke-width="1.5"/><path d="M7.5 9h.01M11.5 9h.01M15.5 9h.01M7.5 12h7" stroke="#9fb3c8" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <h1>Webburns Chat — Calls (WebRTC + Socket.IO)</h1>
+  </header>
+
+  <main>
+    <aside>
+      <div class="card panel stack">
+        <div>
+          <label>Room ID</label>
+          <input id="roomId" placeholder="e.g. webburns-room-1" />
+          <div class="hint">Share this Room ID with the person you want to call. Max 2 people per room.</div>
+        </div>
+        <div class="row">
+          <button id="joinBtn">Join Room</button>
+          <button id="leaveBtn" class="ghost" disabled>Leave</button>
+        </div>
+      </div>
+
+      <div class="card panel stack" style="margin-top:10px">
+        <div class="row">
+          <button id="startCallBtn" disabled>Start Call</button>
+          <button id="hangupBtn" class="danger" disabled>End</button>
+        </div>
+        <div class="toolbar" style="margin-top:10px">
+          <button id="muteBtn" class="ghost" disabled>Mute</button>
+          <button id="camBtn" class="ghost" disabled>Camera Off</button>
+          <button id="screenBtn" class="ghost" disabled>Share Screen</button>
+          <button id="speakerBtn" class="ghost" disabled>Switch Output</button>
+          <button id="flipBtn" class="ghost" disabled>Flip Camera</button>
+        </div>
+        <div class="hint" style="margin-top:8px">Tip: Join the same room from two devices/tabs to test.</div>
+      </div>
+
+      <div class="card panel stack" style="margin-top:10px">
+        <label for="audioSelect">Audio Input</label>
+        <select id="audioSelect"></select>
+        <label for="videoSelect" style="margin-top:8px">Video Input</label>
+        <select id="videoSelect"></select>
+      </div>
+    </aside>
+
+    <section class="videos">
+      <div class="grid">
+        <div class="card panel">
+          <label>Local</label>
+          <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="card panel">
+          <label>Remote</label>
+          <video id="remoteVideo" autoplay playsinline></video>
+        </div>
+      </div>
+      <footer>
+        Uses STUN (Google) for NAT traversal. For production, configure your own TURN server (e.g., coturn).
+      </footer>
+    </section>
+  </main>
+
+  <!-- Socket.IO client (served by your Node server at /socket.io/socket.io.js) or use CDN for quick tests -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    // === DOM elements ===
+    const joinBtn = document.getElementById('joinBtn');
+    const leaveBtn = document.getElementById('leaveBtn');
+    const startCallBtn = document.getElementById('startCallBtn');
+    const hangupBtn = document.getElementById('hangupBtn');
+    const muteBtn = document.getElementById('muteBtn');
+    const camBtn = document.getElementById('camBtn');
+    const screenBtn = document.getElementById('screenBtn');
+    const speakerBtn = document.getElementById('speakerBtn');
+    const flipBtn = document.getElementById('flipBtn');
+    const roomIdInput = document.getElementById('roomId');
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const audioSelect = document.getElementById('audioSelect');
+    const videoSelect = document.getElementById('videoSelect');
+
+    // === State ===
+    let socket, pc, localStream, screenStream, roomId, isMuted = false, isCamOff = false, isInitiator = false;
+    let currentVideoDeviceId = null;
+
+    // ICE servers (use your own TURN server for reliability across strict NATs)
+    const iceConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+        // { urls: 'turn:YOUR_TURN_IP:3478', username: 'user', credential: 'pass' }
+      ]
+    };
+
+    // === Helpers ===
+    async function listDevices() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      audioSelect.innerHTML = '';
+      videoSelect.innerHTML = '';
+      for (const d of devices) {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = `${d.label || d.kind} (${d.deviceId.slice(0,6)})`;
+        if (d.kind === 'audioinput') audioSelect.appendChild(opt);
+        if (d.kind === 'videoinput') videoSelect.appendChild(opt);
+      }
+      if (!currentVideoDeviceId && videoSelect.value) currentVideoDeviceId = videoSelect.value;
+    }
+
+    function enableControls(inRoom) {
+      joinBtn.disabled = inRoom;
+      leaveBtn.disabled = !inRoom;
+      startCallBtn.disabled = !inRoom;
+      muteBtn.disabled = !localStream;
+      camBtn.disabled = !localStream;
+      screenBtn.disabled = !inRoom;
+      speakerBtn.disabled = !remoteVideo.srcObject;
+      flipBtn.disabled = !inRoom;
+      hangupBtn.disabled = !pc;
+    }
+
+    function createPeerConnection() {
+      pc = new RTCPeerConnection(iceConfig);
+      pc.onicecandidate = e => {
+        if (e.candidate) socket.emit('ice-candidate', { roomId, candidate: e.candidate });
+      };
+      pc.ontrack = e => {
+        remoteVideo.srcObject = e.streams[0];
+        enableControls(true);
+      };
+      pc.onconnectionstatechange = () => {
+        if (['failed','disconnected','closed'].includes(pc.connectionState)) {
+          endCallCleanup();
+        }
+      };
+      if (localStream) {
+        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+      }
+    }
+
+    async function getLocalStream(constraints={ audio: true, video: { width:{ideal:1280}, height:{ideal:720}, deviceId: currentVideoDeviceId ? { exact: currentVideoDeviceId } : undefined } }) {
+      if (localStream) return localStream;
+      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      localVideo.srcObject = localStream;
+      await listDevices();
+      enableControls(true);
+      return localStream;
+    }
+
+    async function startCall() {
+      isInitiator = true;
+      await getLocalStream();
+      if (!pc) createPeerConnection();
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await pc.setLocalDescription(offer);
+      socket.emit('offer', { roomId, sdp: offer });
+      hangupBtn.disabled = false;
+    }
+
+    function endCallCleanup() {
+      if (pc) { pc.getSenders().forEach(s=>{try{s.track && s.track.stop()}catch{}}); pc.close(); pc = null; }
+      if (screenStream) { screenStream.getTracks().forEach(t=>t.stop()); screenStream=null; }
+      if (localStream) { localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+      localVideo.srcObject = null; remoteVideo.srcObject = null;
+      isInitiator = false; isMuted=false; isCamOff=false;
+      enableControls(!!roomId);
+    }
+
+    // === UI actions ===
+    joinBtn.onclick = async () => {
+      roomId = roomIdInput.value.trim();
+      if (!roomId) return alert('Enter a Room ID');
+      socket = io();
+      socket.emit('join', { roomId });
+
+      socket.on('joined', async ({ participants }) => {
+        await getLocalStream();
+        enableControls(true);
+        if (participants === 2) {
+          // Someone is already in; allow starting call
+          startCallBtn.disabled = false;
+        }
+      });
+
+      socket.on('full', () => alert('Room is full (max 2).'));
+
+      socket.on('peer-joined', () => {
+        // Second user joined; initiator can start the call
+        startCallBtn.disabled = false;
+      });
+
+      socket.on('offer', async ({ sdp }) => {
+        // Non-initiator receives offer
+        await getLocalStream();
+        if (!pc) createPeerConnection();
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('answer', { roomId, sdp: answer });
+        hangupBtn.disabled = false;
+      });
+
+      socket.on('answer', async ({ sdp }) => {
+        if (!pc) return;
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      });
+
+      socket.on('ice-candidate', async ({ candidate }) => {
+        try { await pc?.addIceCandidate(candidate); } catch(err) { console.error(err); }
+      });
+
+      socket.on('peer-left', () => {
+        endCallCleanup();
+        alert('Peer left the room.');
+      });
+
+      enableControls(true);
+    };
+
+    leaveBtn.onclick = () => {
+      if (socket && roomId) socket.emit('leave', { roomId });
+      endCallCleanup();
+      roomId = null;
+      enableControls(false);
+    };
+
+    startCallBtn.onclick = () => startCall();
+
+    hangupBtn.onclick = () => {
+      if (socket && roomId) socket.emit('hangup', { roomId });
+      endCallCleanup();
+    };
+
+    muteBtn.onclick = () => {
+      if (!localStream) return;
+      isMuted = !isMuted;
+      localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+      muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+    };
+
+    camBtn.onclick = () => {
+      if (!localStream) return;
+      isCamOff = !isCamOff;
+      localStream.getVideoTracks().forEach(t => t.enabled = !isCamOff);
+      camBtn.textContent = isCamOff ? 'Camera On' : 'Camera Off';
+    };
+
+    screenBtn.onclick = async () => {
+      if (!pc) return alert('Start or join a call first.');
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        await sender.replaceTrack(screenTrack);
+        screenTrack.onended = async () => {
+          // Revert to camera when sharing stops
+          const camTrack = localStream.getVideoTracks()[0];
+          await sender.replaceTrack(camTrack);
+        };
+      } catch (err) { console.error('Screen share error:', err); }
+    };
+
+    speakerBtn.onclick = async () => {
+      // Let user choose audio output device (where supported)
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outs = devices.filter(d=>d.kind==='audiooutput');
+        const choice = outs[0];
+        if (choice && 'setSinkId' in remoteVideo) {
+          await remoteVideo.setSinkId(choice.deviceId);
+          alert('Audio output switched.');
+        } else alert('Audio output switching not supported on this browser.');
+      } catch (e) { console.warn(e); }
+    };
+
+    flipBtn.onclick = async () => {
+      // Switch to next available camera
+      const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+      if (!devices.length) return;
+      const idx = devices.findIndex(d=>d.deviceId===currentVideoDeviceId);
+      const next = devices[(idx+1)%devices.length];
+      currentVideoDeviceId = next.deviceId;
+      if (localStream) {
+        // Replace video track
+        const newStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: currentVideoDeviceId } }, audio: true });
+        const newTrack = newStream.getVideoTracks()[0];
+        const sender = pc?.getSenders().find(s=>s.track && s.track.kind==='video');
+        if (sender) await sender.replaceTrack(newTrack);
+        localStream.getVideoTracks().forEach(t=>t.stop());
+        localStream.removeTrack(localStream.getVideoTracks()[0]);
+        localStream.addTrack(newTrack);
+        localVideo.srcObject = null; localVideo.srcObject = localStream;
+      }
+    };
+
+    // Populate device lists when allowed
+    navigator.mediaDevices.getUserMedia({audio:true, video:true}).then(stream=>{
+      stream.getTracks().forEach(t=>t.stop());
+      listDevices();
+    }).catch(()=>{});
+
+    // Keep controls in sync
+    enableControls(false);
+  </script>
+</body>
+</html>
