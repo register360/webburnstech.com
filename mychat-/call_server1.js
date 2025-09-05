@@ -10,8 +10,8 @@ const io = new Server(server, {
   cors: { origin: "*"} // tighten for prod
 });
 
-// serve your single-file client
-app.use(express.static(path.join(__dirname, "public")));
+// serve your single-file client as / (or point to your existing mychat.html)
+app.use(express.static(path.join(__dirname, "public"))); // put mychat.html in /public
 
 io.on("connection", (socket) => {
   let joinedRoom = null;
