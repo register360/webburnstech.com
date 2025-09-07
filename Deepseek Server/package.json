@@ -11,7 +11,7 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "axios": "^1.5.0"
+    "openai": "^4.20.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
@@ -21,7 +21,8 @@
     "assistant",
     "deepseek",
     "api",
-    "chatbot"
+    "chatbot",
+    "openai-sdk"
   ],
   "author": "WebburnsTech",
   "license": "ISC"
