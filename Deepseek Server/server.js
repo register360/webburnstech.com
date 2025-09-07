@@ -1,20 +1,20 @@
 require('dotenv').config();
 const express = require('express');
-const axios = require('axios');
+const OpenAI = require('openai');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// DeepSeek API configuration
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
-const DEEPSEEK_MODEL = 'deepseek-chat'; // Using their best general model
+// Initialize OpenAI client for DeepSeek API
+const openai = new OpenAI({
+  baseURL: 'https://api.deepseek.com',
+  apiKey: process.env.DEEPSEEK_API_KEY
+});
 
 app.use(cors({
   origin: '*',
   methods: ['POST', 'OPTIONS']
 }));
-
 // Enhanced system prompt
 const SYSTEM_PROMPT = `
 You are WebBurns, an advanced AI assistant developed by WebburnsTech, a web development company. you are completely trained by Deepseek:
@@ -202,34 +202,32 @@ app.post('/api/ai-assistant', async (req, res) => {
       { role: 'user', content: message }
     ];
 
-    // Call DeepSeek API
-    const response = await axios.post(
-      `${DEEPSEEK_BASE_URL}/chat/completions`,
-      {
-        model: DEEPSEEK_MODEL,
-        messages: messages,
-        temperature: 0.7, // Balanced temperature for creativity and accuracy
-        max_tokens: 4000, // Increased token limit for longer responses
-        stream: false
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    // Call DeepSeek API using OpenAI SDK
+    const completion = await openai.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 4000
+    });
 
-    const reply = response.data.choices[0]?.message?.content.trim() || 
+    const reply = completion.choices[0]?.message?.content.trim() || 
       "Please email contact@webburns.tech for help.";
 
     res.json({ reply });
 
   } catch (error) {
-    console.error("DeepSeek API error:", error.response?.data || error.message);
-    res.json({ 
-      reply: "Our AI is busy. Email webburnstech@gmail.com for immediate help."
-    });
+    console.error("DeepSeek API error:", error.message);
+    
+    // Provide specific error message for insufficient balance
+    if (error.message.includes('Insufficient Balance') || error.message.includes('balance')) {
+      res.json({ 
+        reply: "Our AI service is currently undergoing maintenance. Please contact webburnstech@gmail.com for assistance or try again later."
+      });
+    } else {
+      res.json({ 
+        reply: "Our AI is busy. Email webburnstech@gmail.com for immediate help."
+      });
+    }
   }
 });
 
