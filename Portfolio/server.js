@@ -7,7 +7,10 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 5000;
+
+// Trust proxy (important for rate limiting behind reverse proxies)
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(helmet());
@@ -61,9 +64,9 @@ const contactSchema = new mongoose.Schema({
 
 const Contact = mongoose.model('Contact', contactSchema);
 
-// Nodemailer transporter
+// Nodemailer transporter - FIXED: createTransporter -> createTransport
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     service: process.env.EMAIL_SERVICE || 'gmail',
     auth: {
       user: process.env.EMAIL_USER,
@@ -191,10 +194,11 @@ app.post('/api/contact', async (req, res) => {
       });
     }
     
-    if (error.responseCode && error.responseCode >= 400 && error.responseCode < 500) {
+    // Handle email errors specifically
+    if (error.responseCode || error.code === 'EAUTH') {
       return res.status(500).json({
         success: false,
-        message: 'Email service configuration error'
+        message: 'Email service configuration error. Please contact me directly at vinayvivek070@gmail.com'
       });
     }
 
