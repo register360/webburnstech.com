@@ -51,6 +51,7 @@ app.use(session({
     store: MongoStore.create({
         mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/webburns-tech',
         ttl: 24 * 60 * 60 // 1 day
+    }),
     cookie: {
         secure: process.env.NODE_ENV === 'production',
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
