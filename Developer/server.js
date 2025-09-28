@@ -26,7 +26,7 @@ const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:8080',
-    'https://api.webburnstech.dev/' // REPLACE WITH YOUR ACTUAL HTDOCS DOMAIN
+    'https://api.webburnstech.dev' // REPLACE WITH YOUR ACTUAL HTDOCS DOMAIN
 ].filter(Boolean);
 
 app.use(cors({
