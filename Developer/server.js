@@ -287,37 +287,43 @@ app.get('/api/auth/google', passport.authenticate('google', {
 
 app.get('/api/auth/google/callback', 
     passport.authenticate('google', { 
-        failureRedirect: process.env.CLIENT_URL || 'http://localhost:3001/login?error=auth_failed' 
+        failureRedirect: process.env.CLIENT_URL || 'http://localhost:3001/api-keys.html?error=auth_failed' 
     }),
     async (req, res) => {
         try {
             // Generate JWT token
             const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '24h' });
             
-            // Redirect to client with token
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?token=${token}`);
+            // Redirect to client with token as URL parameter
+            const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?token=${token}`;
+            console.log('Redirecting to:', redirectUrl);
+            res.redirect(redirectUrl);
         } catch (error) {
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/login?error=token_generation_failed`);
+            console.error('OAuth callback error:', error);
+            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?error=token_generation_failed`);
         }
     }
 );
 
 // GitHub OAuth
-app.get('/api/auth/github', passport.authenticate('github'));
+app.get('/api/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
 
 app.get('/api/auth/github/callback', 
     passport.authenticate('github', { 
-        failureRedirect: process.env.CLIENT_URL || 'http://localhost:3001/login?error=auth_failed' 
+        failureRedirect: process.env.CLIENT_URL || 'http://localhost:3001/api-keys.html?error=auth_failed' 
     }),
     async (req, res) => {
         try {
             // Generate JWT token
             const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '24h' });
             
-            // Redirect to client with token
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?token=${token}`);
+            // Redirect to client with token as URL parameter
+            const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?token=${token}`;
+            console.log('Redirecting to:', redirectUrl);
+            res.redirect(redirectUrl);
         } catch (error) {
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/login?error=token_generation_failed`);
+            console.error('OAuth callback error:', error);
+            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?error=token_generation_failed`);
         }
     }
 );
