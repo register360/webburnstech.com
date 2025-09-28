@@ -9,27 +9,52 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 require('dotenv').config();
 
 const app = express();
 
 // Middleware
 app.use(helmet());
+app.use(express.json());
+
+// CORS Configuration for cross-domain
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    'https://api-nq5k.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:8080',
+    'https://api.webburnstech.dev/' // REPLACE WITH YOUR ACTUAL HTDOCS DOMAIN
+].filter(Boolean);
+
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3001',
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
     credentials: true
 }));
-app.use(express.json());
-app.use(express.static('public'));
 
-// Session configuration for OAuth
+// Session configuration for cross-domain
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-session-secret',
+    secret: process.env.SESSION_SECRET || 'your-session-secret-change-in-production',
     resave: false,
     saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/webburns-tech',
+        ttl: 24 * 60 * 60 // 1 day
+    }),
     cookie: {
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     }
 }));
 
@@ -40,7 +65,8 @@ app.use(passport.session());
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: { error: 'Too many requests from this IP, please try again later.' }
 });
 app.use(limiter);
 
@@ -48,7 +74,9 @@ app.use(limiter);
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/webburns-tech', {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-});
+})
+.then(() => console.log('MongoDB connected successfully'))
+.catch(err => console.error('MongoDB connection error:', err));
 
 // User Schema
 const userSchema = new mongoose.Schema({
@@ -91,7 +119,7 @@ const APIKey = mongoose.model('APIKey', apiKeySchema);
 const APIUsage = mongoose.model('APIUsage', apiUsageSchema);
 
 // JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-change-in-production';
 
 // Passport Serialization
 passport.serializeUser((user, done) => {
@@ -111,9 +139,11 @@ passport.deserializeUser(async (id, done) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback"
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || "https://api-nq5k.onrender.com/api/auth/google/callback"
 }, async (accessToken, refreshToken, profile, done) => {
     try {
+        console.log('Google OAuth profile:', profile.id);
+        
         // Check if user already exists with this Google ID
         let user = await User.findOne({ googleId: profile.id });
         
@@ -148,6 +178,7 @@ passport.use(new GoogleStrategy({
         await user.save();
         done(null, user);
     } catch (error) {
+        console.error('Google OAuth error:', error);
         done(error, null);
     }
 }));
@@ -156,10 +187,12 @@ passport.use(new GoogleStrategy({
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: process.env.GITHUB_CALLBACK_URL || "/api/auth/github/callback",
+    callbackURL: process.env.GITHUB_CALLBACK_URL || "https://api-nq5k.onrender.com/api/auth/github/callback",
     scope: ['user:email']
 }, async (accessToken, refreshToken, profile, done) => {
     try {
+        console.log('GitHub OAuth profile:', profile.id);
+        
         // Check if user already exists with this GitHub ID
         let user = await User.findOne({ githubId: profile.id });
         
@@ -197,6 +230,7 @@ passport.use(new GitHubStrategy({
         await user.save();
         done(null, user);
     } catch (error) {
+        console.error('GitHub OAuth error:', error);
         done(error, null);
     }
 }));
@@ -258,25 +292,40 @@ const validateAPIKey = async (req, res, next) => {
         // Log API usage
         const startTime = Date.now();
         res.on('finish', async () => {
-            const responseTime = Date.now() - startTime;
-            const usage = new APIUsage({
-                apiKeyId: keyDoc._id,
-                endpoint: req.path,
-                method: req.method,
-                timestamp: new Date(),
-                responseTime: responseTime,
-                statusCode: res.statusCode
-            });
-            await usage.save();
+            try {
+                const responseTime = Date.now() - startTime;
+                const usage = new APIUsage({
+                    apiKeyId: keyDoc._id,
+                    endpoint: req.path,
+                    method: req.method,
+                    timestamp: new Date(),
+                    responseTime: responseTime,
+                    statusCode: res.statusCode
+                });
+                await usage.save();
+            } catch (error) {
+                console.error('Error logging API usage:', error);
+            }
         });
 
         next();
     } catch (error) {
+        console.error('API key validation error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
 
 // Routes
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        service: 'Webburns Tech API',
+        version: '1.0.0'
+    });
+});
 
 // OAuth Routes
 
@@ -287,7 +336,7 @@ app.get('/api/auth/google', passport.authenticate('google', {
 
 app.get('/api/auth/google/callback', 
     passport.authenticate('google', { 
-        failureRedirect: process.env.CLIENT_URL || 'http://localhost:3001/api-keys.html?error=auth_failed' 
+        failureRedirect: (process.env.CLIENT_URL || 'https://api.webburnstech.dev/') + '/api-key.html?error=auth_failed'
     }),
     async (req, res) => {
         try {
@@ -295,12 +344,12 @@ app.get('/api/auth/google/callback',
             const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '24h' });
             
             // Redirect to client with token as URL parameter
-            const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?token=${token}`;
-            console.log('Redirecting to:', redirectUrl);
+            const redirectUrl = `${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?token=${token}`;
+            console.log('Google OAuth successful, redirecting to:', redirectUrl);
             res.redirect(redirectUrl);
         } catch (error) {
-            console.error('OAuth callback error:', error);
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?error=token_generation_failed`);
+            console.error('Google OAuth callback error:', error);
+            res.redirect(`${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?error=token_generation_failed`);
         }
     }
 );
@@ -310,7 +359,7 @@ app.get('/api/auth/github', passport.authenticate('github', { scope: ['user:emai
 
 app.get('/api/auth/github/callback', 
     passport.authenticate('github', { 
-        failureRedirect: process.env.CLIENT_URL || 'http://localhost:3001/api-keys.html?error=auth_failed' 
+        failureRedirect: (process.env.CLIENT_URL || 'https://api.webburnstech.dev/') + '/api-key.html?error=auth_failed'
     }),
     async (req, res) => {
         try {
@@ -318,12 +367,12 @@ app.get('/api/auth/github/callback',
             const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '24h' });
             
             // Redirect to client with token as URL parameter
-            const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?token=${token}`;
-            console.log('Redirecting to:', redirectUrl);
+            const redirectUrl = `${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?token=${token}`;
+            console.log('GitHub OAuth successful, redirecting to:', redirectUrl);
             res.redirect(redirectUrl);
         } catch (error) {
-            console.error('OAuth callback error:', error);
-            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?error=token_generation_failed`);
+            console.error('GitHub OAuth callback error:', error);
+            res.redirect(`${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?error=token_generation_failed`);
         }
     }
 );
@@ -332,6 +381,11 @@ app.get('/api/auth/github/callback',
 app.post('/api/auth/register', async (req, res) => {
     try {
         const { name, email, password } = req.body;
+
+        // Validate input
+        if (!name || !email || !password) {
+            return res.status(400).json({ error: 'Name, email, and password are required' });
+        }
 
         // Check if user exists
         const existingUser = await User.findOne({ email });
@@ -367,6 +421,7 @@ app.post('/api/auth/register', async (req, res) => {
             }
         });
     } catch (error) {
+        console.error('Registration error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -375,6 +430,11 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
 
         // Find user
         const user = await User.findOne({ email });
@@ -414,6 +474,7 @@ app.post('/api/auth/login', async (req, res) => {
             }
         });
     } catch (error) {
+        console.error('Login error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -422,6 +483,10 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.user.userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
         res.json({
             user: { 
                 id: user._id, 
@@ -432,6 +497,7 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
             }
         });
     } catch (error) {
+        console.error('Profile error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -441,6 +507,11 @@ app.post('/api/keys/generate', authenticateToken, async (req, res) => {
     try {
         const { name, expiresInDays, scopes } = req.body;
         const userId = req.user.userId;
+
+        // Validate input
+        if (!name) {
+            return res.status(400).json({ error: 'Key name is required' });
+        }
 
         // Check user's plan limits
         const user = await User.findById(userId);
@@ -486,6 +557,7 @@ app.post('/api/keys/generate', authenticateToken, async (req, res) => {
             }
         });
     } catch (error) {
+        console.error('Generate key error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -496,6 +568,7 @@ app.get('/api/keys', authenticateToken, async (req, res) => {
         const keys = await APIKey.find({ userId: req.user.userId }).sort({ createdAt: -1 });
         res.json({ keys });
     } catch (error) {
+        console.error('Get keys error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -518,6 +591,7 @@ app.patch('/api/keys/:keyId/revoke', authenticateToken, async (req, res) => {
 
         res.json({ message: 'API key revoked successfully' });
     } catch (error) {
+        console.error('Revoke key error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -539,7 +613,7 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
             },
             { 
                 $match: { 
-                    'apiKey.userId': mongoose.Types.ObjectId(req.user.userId),
+                    'apiKey.userId': new mongoose.Types.ObjectId(req.user.userId),
                     timestamp: { $gte: thirtyDaysAgo } 
                 } 
             },
@@ -581,7 +655,7 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
             },
             { 
                 $match: { 
-                    'apiKey.userId': mongoose.Types.ObjectId(req.user.userId)
+                    'apiKey.userId': new mongoose.Types.ObjectId(req.user.userId)
                 } 
             },
             { $sort: { timestamp: -1 } },
@@ -672,20 +746,40 @@ app.post('/api/v1/server/deploy', validateAPIKey, (req, res) => {
 
 // Serve static files
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/api.html');
+    res.json({ 
+        message: 'Webburns Tech API Server',
+        version: '1.0.0',
+        endpoints: {
+            auth: '/api/auth',
+            keys: '/api/keys',
+            usage: '/api/usage',
+            demo: '/api/v1'
+        }
+    });
+});
+
+// Redirect to frontend
+app.get('/api-key.html', (req, res) => {
+    res.redirect(process.env.CLIENT_URL || 'https://api.webburnstech.dev/' + '/api-key.html');
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+    res.status(404).json({ error: 'Endpoint not found' });
 });
 
 // Error handling middleware
 app.use((error, req, res, next) => {
-    console.error(error);
+    console.error('Server error:', error);
     res.status(500).json({ error: 'Internal server error' });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`API Documentation: http://localhost:${PORT}/api.html`);
-    console.log(`OAuth URLs configured:`);
-    console.log(`- Google: http://localhost:${PORT}/api/auth/google`);
-    console.log(`- GitHub: http://localhost:${PORT}/api/auth/github`);
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🔗 Health check: https://api-nq5k.onrender.com:${PORT}/api/health`);
+    console.log(`🔐 OAuth URLs:`);
+    console.log(`   - Google: https://api-nq5k.onrender.com:${PORT}/api/auth/google`);
+    console.log(`   - GitHub: https://api-nq5k.onrender.com:${PORT}/api/auth/github`);
+    console.log(`🎯 Frontend: ${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}`);
 });
