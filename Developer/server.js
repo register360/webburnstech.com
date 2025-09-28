@@ -8,15 +8,34 @@ const rateLimit = require('express-rate-limit');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
+const session = require('express-session');
 require('dotenv').config();
 
 const app = express();
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:3001',
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.static('public'));
+
+// Session configuration for OAuth
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-session-secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Rate limiting
 const limiter = rateLimit({
@@ -26,7 +45,7 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI, {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/webburns-tech', {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 });
@@ -38,6 +57,7 @@ const userSchema = new mongoose.Schema({
     password: { type: String },
     googleId: { type: String },
     githubId: { type: String },
+    avatar: { type: String },
     plan: { type: String, default: 'free' },
     createdAt: { type: Date, default: Date.now },
     lastLogin: { type: Date }
@@ -72,6 +92,114 @@ const APIUsage = mongoose.model('APIUsage', apiUsageSchema);
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Passport Serialization
+passport.serializeUser((user, done) => {
+    done(null, user._id);
+});
+
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await User.findById(id);
+        done(null, user);
+    } catch (error) {
+        done(error, null);
+    }
+});
+
+// Google OAuth Strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback"
+}, async (accessToken, refreshToken, profile, done) => {
+    try {
+        // Check if user already exists with this Google ID
+        let user = await User.findOne({ googleId: profile.id });
+        
+        if (user) {
+            // Update last login
+            user.lastLogin = new Date();
+            await user.save();
+            return done(null, user);
+        }
+        
+        // Check if user exists with the same email
+        user = await User.findOne({ email: profile.emails[0].value });
+        
+        if (user) {
+            // Link Google account to existing user
+            user.googleId = profile.id;
+            user.avatar = profile.photos[0].value;
+            user.lastLogin = new Date();
+            await user.save();
+            return done(null, user);
+        }
+        
+        // Create new user
+        user = new User({
+            name: profile.displayName,
+            email: profile.emails[0].value,
+            googleId: profile.id,
+            avatar: profile.photos[0].value,
+            lastLogin: new Date()
+        });
+        
+        await user.save();
+        done(null, user);
+    } catch (error) {
+        done(error, null);
+    }
+}));
+
+// GitHub OAuth Strategy
+passport.use(new GitHubStrategy({
+    clientID: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    callbackURL: process.env.GITHUB_CALLBACK_URL || "/api/auth/github/callback",
+    scope: ['user:email']
+}, async (accessToken, refreshToken, profile, done) => {
+    try {
+        // Check if user already exists with this GitHub ID
+        let user = await User.findOne({ githubId: profile.id });
+        
+        if (user) {
+            // Update last login
+            user.lastLogin = new Date();
+            await user.save();
+            return done(null, user);
+        }
+        
+        // Get email from GitHub profile (might be null if not public)
+        const email = profile.emails && profile.emails[0] ? profile.emails[0].value : `${profile.username}@github.com`;
+        
+        // Check if user exists with the same email
+        user = await User.findOne({ email });
+        
+        if (user) {
+            // Link GitHub account to existing user
+            user.githubId = profile.id;
+            user.avatar = profile.photos[0].value;
+            user.lastLogin = new Date();
+            await user.save();
+            return done(null, user);
+        }
+        
+        // Create new user
+        user = new User({
+            name: profile.displayName || profile.username,
+            email: email,
+            githubId: profile.id,
+            avatar: profile.photos[0].value,
+            lastLogin: new Date()
+        });
+        
+        await user.save();
+        done(null, user);
+    } catch (error) {
+        done(error, null);
+    }
+}));
 
 // Generate secure API key
 function generateAPIKey(prefix = 'wb_sk') {
@@ -111,7 +239,10 @@ const validateAPIKey = async (req, res, next) => {
         const keyDoc = await APIKey.findOne({ 
             key: apiKey, 
             status: 'active',
-            expiresAt: { $gt: new Date() }
+            $or: [
+                { expiresAt: { $gt: new Date() } },
+                { expiresAt: null }
+            ]
         }).populate('userId');
 
         if (!keyDoc) {
@@ -120,14 +251,24 @@ const validateAPIKey = async (req, res, next) => {
 
         req.apiKey = keyDoc;
         
+        // Update last used
+        keyDoc.lastUsed = new Date();
+        await keyDoc.save();
+        
         // Log API usage
-        const usage = new APIUsage({
-            apiKeyId: keyDoc._id,
-            endpoint: req.path,
-            method: req.method,
-            timestamp: new Date()
+        const startTime = Date.now();
+        res.on('finish', async () => {
+            const responseTime = Date.now() - startTime;
+            const usage = new APIUsage({
+                apiKeyId: keyDoc._id,
+                endpoint: req.path,
+                method: req.method,
+                timestamp: new Date(),
+                responseTime: responseTime,
+                statusCode: res.statusCode
+            });
+            await usage.save();
         });
-        await usage.save();
 
         next();
     } catch (error) {
@@ -136,6 +277,50 @@ const validateAPIKey = async (req, res, next) => {
 };
 
 // Routes
+
+// OAuth Routes
+
+// Google OAuth
+app.get('/api/auth/google', passport.authenticate('google', { 
+    scope: ['profile', 'email'] 
+}));
+
+app.get('/api/auth/google/callback', 
+    passport.authenticate('google', { 
+        failureRedirect: process.env.CLIENT_URL || 'http://localhost:3001/login?error=auth_failed' 
+    }),
+    async (req, res) => {
+        try {
+            // Generate JWT token
+            const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '24h' });
+            
+            // Redirect to client with token
+            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?token=${token}`);
+        } catch (error) {
+            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/login?error=token_generation_failed`);
+        }
+    }
+);
+
+// GitHub OAuth
+app.get('/api/auth/github', passport.authenticate('github'));
+
+app.get('/api/auth/github/callback', 
+    passport.authenticate('github', { 
+        failureRedirect: process.env.CLIENT_URL || 'http://localhost:3001/login?error=auth_failed' 
+    }),
+    async (req, res) => {
+        try {
+            // Generate JWT token
+            const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '24h' });
+            
+            // Redirect to client with token
+            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/api-keys.html?token=${token}`);
+        } catch (error) {
+            res.redirect(`${process.env.CLIENT_URL || 'http://localhost:3001'}/login?error=token_generation_failed`);
+        }
+    }
+);
 
 // User registration
 app.post('/api/auth/register', async (req, res) => {
@@ -155,7 +340,8 @@ app.post('/api/auth/register', async (req, res) => {
         const user = new User({
             name,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            lastLogin: new Date()
         });
 
         await user.save();
@@ -166,7 +352,13 @@ app.post('/api/auth/register', async (req, res) => {
         res.status(201).json({
             message: 'User created successfully',
             token,
-            user: { id: user._id, name: user.name, email: user.email, plan: user.plan }
+            user: { 
+                id: user._id, 
+                name: user.name, 
+                email: user.email, 
+                plan: user.plan,
+                avatar: user.avatar 
+            }
         });
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
@@ -182,6 +374,13 @@ app.post('/api/auth/login', async (req, res) => {
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        // Check if user has password (might be OAuth-only user)
+        if (!user.password) {
+            return res.status(400).json({ 
+                error: 'This account uses social login. Please sign in with Google or GitHub.' 
+            });
         }
 
         // Check password
@@ -200,7 +399,13 @@ app.post('/api/auth/login', async (req, res) => {
         res.json({
             message: 'Login successful',
             token,
-            user: { id: user._id, name: user.name, email: user.email, plan: user.plan }
+            user: { 
+                id: user._id, 
+                name: user.name, 
+                email: user.email, 
+                plan: user.plan,
+                avatar: user.avatar 
+            }
         });
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
@@ -212,7 +417,13 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.user.userId);
         res.json({
-            user: { id: user._id, name: user.name, email: user.email, plan: user.plan }
+            user: { 
+                id: user._id, 
+                name: user.name, 
+                email: user.email, 
+                plan: user.plan,
+                avatar: user.avatar 
+            }
         });
     } catch (error) {
         res.status(500).json({ error: 'Internal server error' });
@@ -310,12 +521,8 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
     try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         
+        // Get usage data with more detailed information
         const usage = await APIUsage.aggregate([
-            { 
-                $match: { 
-                    timestamp: { $gte: thirtyDaysAgo } 
-                } 
-            },
             {
                 $lookup: {
                     from: 'apikeys',
@@ -326,17 +533,29 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
             },
             { 
                 $match: { 
-                    'apiKey.userId': mongoose.Types.ObjectId(req.user.userId) 
+                    'apiKey.userId': mongoose.Types.ObjectId(req.user.userId),
+                    timestamp: { $gte: thirtyDaysAgo } 
                 } 
             },
             {
                 $group: {
                     _id: { 
-                        date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } },
-                        endpoint: "$endpoint"
+                        date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } }
                     },
                     count: { $sum: 1 },
-                    avgResponseTime: { $avg: "$responseTime" }
+                    avgResponseTime: { $avg: "$responseTime" },
+                    successCount: {
+                        $sum: {
+                            $cond: [
+                                { $and: [
+                                    { $gte: ["$statusCode", 200] },
+                                    { $lt: ["$statusCode", 300] }
+                                ]},
+                                1,
+                                0
+                            ]
+                        }
+                    }
                 }
             },
             { 
@@ -344,8 +563,40 @@ app.get('/api/usage', authenticateToken, async (req, res) => {
             }
         ]);
 
-        res.json({ usage });
+        // Get recent API calls for the table
+        const recentCalls = await APIUsage.aggregate([
+            {
+                $lookup: {
+                    from: 'apikeys',
+                    localField: 'apiKeyId',
+                    foreignField: '_id',
+                    as: 'apiKey'
+                }
+            },
+            { 
+                $match: { 
+                    'apiKey.userId': mongoose.Types.ObjectId(req.user.userId)
+                } 
+            },
+            { $sort: { timestamp: -1 } },
+            { $limit: 10 },
+            {
+                $project: {
+                    endpoint: 1,
+                    method: 1,
+                    statusCode: 1,
+                    responseTime: 1,
+                    timestamp: 1
+                }
+            }
+        ]);
+
+        res.json({ 
+            usage,
+            recentCalls 
+        });
     } catch (error) {
+        console.error('Usage stats error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -359,13 +610,16 @@ app.get('/api/v1/database/records', validateAPIKey, (req, res) => {
         return res.status(403).json({ error: 'Insufficient scope permissions' });
     }
 
-    res.json({
-        message: 'Database API demo endpoint',
-        data: [
-            { id: 1, name: 'Sample Record 1', value: 100 },
-            { id: 2, name: 'Sample Record 2', value: 200 }
-        ]
-    });
+    // Simulate database query delay
+    setTimeout(() => {
+        res.json({
+            message: 'Database API demo endpoint',
+            data: [
+                { id: 1, name: 'Sample Record 1', value: 100 },
+                { id: 2, name: 'Sample Record 2', value: 200 }
+            ]
+        });
+    }, 100);
 });
 
 // AI API demo endpoint
@@ -376,15 +630,18 @@ app.post('/api/v1/ai/analyze', validateAPIKey, (req, res) => {
 
     const { text, analysis_type } = req.body;
 
-    res.json({
-        message: 'AI analysis completed',
-        analysis_type,
-        result: {
-            sentiment: 'positive',
-            confidence: 0.87,
-            keywords: ['sample', 'analysis', 'text']
-        }
-    });
+    // Simulate AI processing delay
+    setTimeout(() => {
+        res.json({
+            message: 'AI analysis completed',
+            analysis_type,
+            result: {
+                sentiment: 'positive',
+                confidence: 0.87,
+                keywords: ['sample', 'analysis', 'text']
+            }
+        });
+    }, 300);
 });
 
 // Server API demo endpoint
@@ -395,13 +652,16 @@ app.post('/api/v1/server/deploy', validateAPIKey, (req, res) => {
 
     const { app_name, repository } = req.body;
 
-    res.json({
-        message: 'Deployment initiated',
-        deployment_id: 'dep_' + Date.now(),
-        status: 'pending',
-        app_name,
-        repository
-    });
+    // Simulate deployment processing
+    setTimeout(() => {
+        res.json({
+            message: 'Deployment initiated',
+            deployment_id: 'dep_' + Date.now(),
+            status: 'pending',
+            app_name,
+            repository
+        });
+    }, 500);
 });
 
 // Serve static files
@@ -419,4 +679,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`API Documentation: http://localhost:${PORT}/api.html`);
+    console.log(`OAuth URLs configured:`);
+    console.log(`- Google: http://localhost:${PORT}/api/auth/google`);
+    console.log(`- GitHub: http://localhost:${PORT}/api/auth/github`);
 });
