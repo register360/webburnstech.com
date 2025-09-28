@@ -17,6 +17,7 @@ const app = express();
 // Middleware
 app.use(helmet());
 app.use(express.json());
+app.use(express.static('public'));
 
 // CORS Configuration for cross-domain
 const allowedOrigins = [
@@ -135,20 +136,24 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-// Google OAuth Strategy
+// Google OAuth Strategy - UPDATED WITH BETTER ERROR HANDLING
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_CALLBACK_URL || "https://api-nq5k.onrender.com/api/auth/google/callback"
 }, async (accessToken, refreshToken, profile, done) => {
     try {
-        console.log('Google OAuth profile:', profile.id);
-        
+        console.log('Google OAuth profile received:', {
+            id: profile.id,
+            displayName: profile.displayName,
+            email: profile.emails?.[0]?.value
+        });
+
         // Check if user already exists with this Google ID
         let user = await User.findOne({ googleId: profile.id });
         
         if (user) {
-            // Update last login
+            console.log('Existing Google user found:', user.email);
             user.lastLogin = new Date();
             await user.save();
             return done(null, user);
@@ -158,7 +163,7 @@ passport.use(new GoogleStrategy({
         user = await User.findOne({ email: profile.emails[0].value });
         
         if (user) {
-            // Link Google account to existing user
+            console.log('Linking Google to existing user:', profile.emails[0].value);
             user.googleId = profile.id;
             user.avatar = profile.photos[0].value;
             user.lastLogin = new Date();
@@ -167,6 +172,7 @@ passport.use(new GoogleStrategy({
         }
         
         // Create new user
+        console.log('Creating new user from Google:', profile.emails[0].value);
         user = new User({
             name: profile.displayName,
             email: profile.emails[0].value,
@@ -176,14 +182,15 @@ passport.use(new GoogleStrategy({
         });
         
         await user.save();
+        console.log('New Google user created successfully');
         done(null, user);
     } catch (error) {
-        console.error('Google OAuth error:', error);
+        console.error('Google OAuth error details:', error);
         done(error, null);
     }
 }));
 
-// GitHub OAuth Strategy
+// GitHub OAuth Strategy - UPDATED WITH BETTER ERROR HANDLING
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -191,46 +198,60 @@ passport.use(new GitHubStrategy({
     scope: ['user:email']
 }, async (accessToken, refreshToken, profile, done) => {
     try {
-        console.log('GitHub OAuth profile:', profile.id);
-        
+        console.log('GitHub OAuth profile received:', {
+            id: profile.id,
+            username: profile.username,
+            displayName: profile.displayName,
+            emails: profile.emails
+        });
+
         // Check if user already exists with this GitHub ID
         let user = await User.findOne({ githubId: profile.id });
         
         if (user) {
-            // Update last login
+            console.log('Existing GitHub user found:', user.email);
             user.lastLogin = new Date();
             await user.save();
             return done(null, user);
         }
         
-        // Get email from GitHub profile (might be null if not public)
-        const email = profile.emails && profile.emails[0] ? profile.emails[0].value : `${profile.username}@github.com`;
+        // Get email from GitHub profile
+        let email = null;
+        if (profile.emails && profile.emails.length > 0) {
+            email = profile.emails[0].value;
+        } else {
+            // If no public email, create a placeholder
+            email = `${profile.username}@users.noreply.github.com`;
+            console.log('No email found in GitHub profile, using placeholder:', email);
+        }
         
         // Check if user exists with the same email
         user = await User.findOne({ email });
         
         if (user) {
-            // Link GitHub account to existing user
+            console.log('Linking GitHub to existing user:', email);
             user.githubId = profile.id;
-            user.avatar = profile.photos[0].value;
+            user.avatar = profile.photos && profile.photos[0] ? profile.photos[0].value : user.avatar;
             user.lastLogin = new Date();
             await user.save();
             return done(null, user);
         }
         
         // Create new user
+        console.log('Creating new user from GitHub:', email);
         user = new User({
             name: profile.displayName || profile.username,
             email: email,
             githubId: profile.id,
-            avatar: profile.photos[0].value,
+            avatar: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
             lastLogin: new Date()
         });
         
         await user.save();
+        console.log('New GitHub user created successfully');
         done(null, user);
     } catch (error) {
-        console.error('GitHub OAuth error:', error);
+        console.error('GitHub OAuth error details:', error);
         done(error, null);
     }
 }));
@@ -315,6 +336,15 @@ const validateAPIKey = async (req, res, next) => {
     }
 };
 
+// Database connection check middleware
+const checkDBConnection = (req, res, next) => {
+    if (mongoose.connection.readyState !== 1) {
+        console.error('Database not connected. Ready state:', mongoose.connection.readyState);
+        return res.status(500).json({ error: 'Database connection unavailable' });
+    }
+    next();
+};
+
 // Routes
 
 // Health check endpoint
@@ -323,8 +353,22 @@ app.get('/api/health', (req, res) => {
         status: 'OK', 
         timestamp: new Date().toISOString(),
         service: 'Webburns Tech API',
-        version: '1.0.0'
+        version: '1.0.0',
+        database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
     });
+});
+
+// Debug middleware for OAuth
+app.use('/api/auth/github/callback', (req, res, next) => {
+    console.log('GitHub Callback - Query params:', req.query);
+    console.log('GitHub Callback - Headers:', req.headers);
+    next();
+});
+
+app.use('/api/auth/google/callback', (req, res, next) => {
+    console.log('Google Callback - Query params:', req.query);
+    console.log('Google Callback - Headers:', req.headers);
+    next();
 });
 
 // OAuth Routes
@@ -335,20 +379,23 @@ app.get('/api/auth/google', passport.authenticate('google', {
 }));
 
 app.get('/api/auth/google/callback', 
+    checkDBConnection,
     passport.authenticate('google', { 
         failureRedirect: (process.env.CLIENT_URL || 'https://api.webburnstech.dev/') + '/api-key.html?error=auth_failed'
     }),
     async (req, res) => {
         try {
+            console.log('Google OAuth callback successful for user:', req.user.email);
+            
             // Generate JWT token
             const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '24h' });
             
             // Redirect to client with token as URL parameter
             const redirectUrl = `${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?token=${token}`;
-            console.log('Google OAuth successful, redirecting to:', redirectUrl);
+            console.log('Redirecting to:', redirectUrl);
             res.redirect(redirectUrl);
         } catch (error) {
-            console.error('Google OAuth callback error:', error);
+            console.error('Google OAuth callback error details:', error);
             res.redirect(`${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?error=token_generation_failed`);
         }
     }
@@ -358,20 +405,23 @@ app.get('/api/auth/google/callback',
 app.get('/api/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
 
 app.get('/api/auth/github/callback', 
+    checkDBConnection,
     passport.authenticate('github', { 
         failureRedirect: (process.env.CLIENT_URL || 'https://api.webburnstech.dev/') + '/api-key.html?error=auth_failed'
     }),
     async (req, res) => {
         try {
+            console.log('GitHub OAuth callback successful for user:', req.user.email);
+            
             // Generate JWT token
             const token = jwt.sign({ userId: req.user._id }, JWT_SECRET, { expiresIn: '24h' });
             
             // Redirect to client with token as URL parameter
             const redirectUrl = `${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?token=${token}`;
-            console.log('GitHub OAuth successful, redirecting to:', redirectUrl);
+            console.log('Redirecting to:', redirectUrl);
             res.redirect(redirectUrl);
         } catch (error) {
-            console.error('GitHub OAuth callback error:', error);
+            console.error('GitHub OAuth callback error details:', error);
             res.redirect(`${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?error=token_generation_failed`);
         }
     }
@@ -763,6 +813,12 @@ app.get('/api-key.html', (req, res) => {
     res.redirect(process.env.CLIENT_URL || 'https://api.webburnstech.dev/' + '/api-key.html');
 });
 
+// Specific error handler for OAuth routes
+app.use('/api/auth/*', (error, req, res, next) => {
+    console.error('OAuth Route Error:', error);
+    res.redirect(`${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}/api-key.html?error=oauth_failed`);
+});
+
 // 404 handler
 app.use('*', (req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
@@ -782,4 +838,5 @@ app.listen(PORT, () => {
     console.log(`   - Google: https://api-nq5k.onrender.com:${PORT}/api/auth/google`);
     console.log(`   - GitHub: https://api-nq5k.onrender.com:${PORT}/api/auth/github`);
     console.log(`🎯 Frontend: ${process.env.CLIENT_URL || 'https://api.webburnstech.dev/'}`);
+    console.log(`📊 Database: ${mongoose.connection.readyState === 1 ? 'Connected ✅' : 'Disconnected ❌'}`);
 });
