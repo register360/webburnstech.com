@@ -78,8 +78,8 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/webburns-
 
 // User Schema
 const userSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    name: { type: String, required: [true, 'Name is required'], default: 'User' },
+    email: { type: String, required: [true, 'Email is required'], unique: true },
     password: { type: String },
     googleId: { type: String },
     githubId: { type: String },
@@ -133,7 +133,7 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-// Google OAuth Strategy - UPDATED WITH BETTER ERROR HANDLING
+// Google OAuth Strategy - UPDATED FOR CONSISTENCY
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -168,10 +168,16 @@ passport.use(new GoogleStrategy({
             return done(null, user);
         }
         
+        // FIXED: Ensure name is always available
+        let name = profile.displayName;
+        if (!name) {
+            name = 'Google User'; // Fallback name
+        }
+        
         // Create new user
         console.log('Creating new user from Google:', profile.emails[0].value);
         user = new User({
-            name: profile.displayName,
+            name: name,
             email: profile.emails[0].value,
             googleId: profile.id,
             avatar: profile.photos[0].value,
@@ -187,7 +193,7 @@ passport.use(new GoogleStrategy({
     }
 }));
 
-// GitHub OAuth Strategy - UPDATED WITH BETTER ERROR HANDLING
+// GitHub OAuth Strategy - FIXED NAME HANDLING
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -222,6 +228,12 @@ passport.use(new GitHubStrategy({
             console.log('No email found in GitHub profile, using placeholder:', email);
         }
         
+        // FIXED: Handle name properly - use displayName or username
+        let name = profile.displayName || profile.username;
+        if (!name) {
+            name = 'GitHub User'; // Fallback name
+        }
+        
         // Check if user exists with the same email
         user = await User.findOne({ email });
         
@@ -234,10 +246,10 @@ passport.use(new GitHubStrategy({
             return done(null, user);
         }
         
-        // Create new user
+        // Create new user - FIXED: Ensure name is provided
         console.log('Creating new user from GitHub:', email);
         user = new User({
-            name: profile.displayName || profile.username,
+            name: name,
             email: email,
             githubId: profile.id,
             avatar: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
