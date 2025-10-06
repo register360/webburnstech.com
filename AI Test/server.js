@@ -19,26 +19,41 @@ app.post("/startChat", async (req, res) => {
     let ai2Msg = "";
     const conversation = [];
 
-    for (let i = 0; i < turns; i++) {
-      // 🧠 AI-1 responds
-      const res1 = await fetch(AI1_URL, {
+    // Helper function: safely fetch JSON or fallback text
+    async function safeFetch(url, message) {
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: ai2Msg || ai1Msg }),
+        body: JSON.stringify({ message }),
       });
-      const data1 = await res1.json();
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error(`⚠️ ${url} error:`, text);
+        return { reply: `Error (${response.status}): ${text}` };
+      }
+
+      try {
+        return await response.json();
+      } catch (err) {
+        const text = await response.text();
+        return { reply: `Invalid JSON: ${text}` };
+      }
+    }
+
+    for (let i = 0; i < turns; i++) {
+      const data1 = await safeFetch(AI1_URL, ai2Msg || ai1Msg);
       ai1Msg = data1.reply || data1.response || JSON.stringify(data1);
       conversation.push({ sender: "AI-1", text: ai1Msg });
 
-      // 🤖 AI-2 responds
-      const res2 = await fetch(AI2_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: ai1Msg }),
-      });
-      const data2 = await res2.json();
+      // ⏱️ delay to prevent rate-limit
+      await new Promise(r => setTimeout(r, 1500));
+
+      const data2 = await safeFetch(AI2_URL, ai1Msg);
       ai2Msg = data2.reply || data2.response || JSON.stringify(data2);
       conversation.push({ sender: "AI-2", text: ai2Msg });
+
+      await new Promise(r => setTimeout(r, 1500));
     }
 
     res.json({ success: true, conversation });
