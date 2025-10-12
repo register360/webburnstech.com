@@ -64,9 +64,6 @@ const loginLimiter = rateLimit({
 
 app.use(generalLimiter);
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public')));
-
 // In-memory storage (fallback when Redis is not available)
 const memoryStorage = {
     failedAttempts: new Map(), // ip -> count
@@ -236,12 +233,6 @@ app.use((req, res, next) => {
     req.deviceName = deviceName;
     next();
 });
-
-// Routes
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'matrix.html'));
-});
-
 app.get('/whoami', (req, res) => {
     const clientInfo = {
         ip: getClientIP(req),
@@ -396,7 +387,6 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`🚀 Matrix Security Server running on port ${PORT}`);
-    console.log(`📁 Serving static files from: ${path.join(__dirname, 'public')}`);
     console.log(`🔐 Demo credentials: ${CONFIG.VALID_USERNAME} / ${CONFIG.VALID_PASSWORD}`);
     console.log(`🗄️  Storage: ${redisClient ? 'Redis' : 'In-Memory'}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
