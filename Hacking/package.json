@@ -1,0 +1,55 @@
+{
+  "name": "matrix-security-system",
+  "version": "1.0.0",
+  "description": "A Matrix-themed login system with advanced security features and backend protection",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "dev:redis": "REDIS_URL=redis://localhost:6379 node server.js",
+    "prod": "NODE_ENV=production node server.js",
+    "prod:redis": "NODE_ENV=production REDIS_URL=redis://localhost:6379 node server.js",
+    "test": "echo \"No tests specified\" && exit 0",
+    "docker:build": "docker build -t matrix-security .",
+    "docker:run": "docker run -p 3000:3000 matrix-security",
+    "docker:run-redis": "docker-compose up -d"
+  },
+  "keywords": [
+    "matrix",
+    "security",
+    "login",
+    "authentication",
+    "cybersecurity",
+    "express",
+    "nodejs",
+    "rate-limiting",
+    "redis"
+  ],
+  "author": "Matrix Security Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cookie-parser": "^1.4.6",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.8.1",
+    "redis": "^4.6.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/matrix-security-system.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/matrix-security-system/issues"
+  },
+  "homepage": "https://github.com/your-username/matrix-security-system#readme",
+  "optionalDependencies": {
+    "redis": "^4.6.5"
+  }
+}
