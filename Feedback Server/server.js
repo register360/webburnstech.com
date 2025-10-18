@@ -36,11 +36,17 @@ const Feedback = mongoose.model('Feedback', feedbackSchema);
 
 // Email transporter
 const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com', // e.g., smtp.gmail.com
+  port: 587, // Use 587 for TLS, 465 for SSL
+  secure: false, // true for 465, false for other ports
   service: 'gmail',
   auth: {
     user: GMAIL_USER,
     pass: GMAIL_PASS
-  }
+  },
+  connectionTimeout: 60000, // 60 seconds
+  greetingTimeout: 60000,
+  socketTimeout: 60000
 });
 
 // API endpoint for feedback
