@@ -50,23 +50,58 @@ app.post('/api/feedback', async (req, res) => {
     const newFeedback = new Feedback({ name, email, rating, feedback });
     await newFeedback.save();
     
-    // Send confirmation email using Resend
+    // Send confirmation email using Resend with your verified domain
     const { data, error } = await resend.emails.send({
-      from: 'WebBurns Tech <onboarding@resend.dev>', // You can verify your domain later
+      from: 'WebBurns Tech <noreply@webburnstech.dev>', // Using your verified domain
       to: email,
+      replyTo: 'contact@webburnstech.dev', // Optional: for replies
       subject: 'Thank You for Your Feedback - WebBurns Tech',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">Dear ${name},</h2>
-          <p style="font-size: 16px; line-height: 1.6;">Thank you for taking the time to share your feedback with us!</p>
-          <p style="font-size: 16px; line-height: 1.6;">We've received your <strong>${rating}-star</strong> rating and the following comments:</p>
-          <div style="background-color: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0;">
-            <p style="font-style: italic; margin: 0; color: #555;">"${feedback}"</p>
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 28px;">WebBurns Tech</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">AI Innovation & Development</p>
           </div>
-          <p style="font-size: 16px; line-height: 1.6;">Your input is invaluable in helping us improve WebBurns AI. We appreciate your support!</p>
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="margin: 0; color: #666;">Best regards,</p>
-            <p style="margin: 0; font-weight: bold; color: #333;">The WebBurns Tech Team</p>
+          
+          <div style="padding: 30px;">
+            <h2 style="color: #333; margin-bottom: 20px;">Dear ${name},</h2>
+            <p style="font-size: 16px; line-height: 1.6; color: #555;">
+              Thank you for taking the time to share your valuable feedback with us!
+            </p>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">Your Feedback Summary:</h3>
+              <p style="margin: 10px 0;"><strong>Rating:</strong> 
+                <span style="color: #ffc107;">
+                  ${'★'.repeat(rating)}${'☆'.repeat(5-rating)} 
+                  (${rating}/5)
+                </span>
+              </p>
+              <p style="margin: 10px 0;"><strong>Comments:</strong></p>
+              <div style="background: white; padding: 15px; border-left: 4px solid #667eea; margin: 10px 0;">
+                <p style="font-style: italic; margin: 0; color: #666;">"${feedback}"</p>
+              </div>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #555;">
+              Your input is invaluable in helping us improve WebBurns AI and deliver better 
+              solutions. We're committed to using your feedback to enhance our services.
+            </p>
+            
+            <p style="font-size: 16px; line-height: 1.6; color: #555;">
+              We appreciate your support and look forward to serving you better!
+            </p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+            <p style="margin: 0; color: #666; font-size: 14px;">
+              Best regards,<br>
+              <strong style="color: #333;">The WebBurns Tech Team</strong>
+            </p>
+            <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">
+              <a href="https://webburnstech.dev" style="color: #667eea; text-decoration: none;">webburnstech.dev</a> | 
+              <a href="mailto:contact@webburnstech.dev" style="color: #667eea; text-decoration: none;">contact@webburnstech.dev</a>
+            </p>
           </div>
         </div>
       `
@@ -74,15 +109,16 @@ app.post('/api/feedback', async (req, res) => {
 
     if (error) {
       console.error('Resend email error:', error);
-      // Don't fail the entire request if email fails, just log it
-      // The feedback is already saved to database
+      // Don't fail the entire request if email fails
+      console.log('Feedback saved to DB but email failed');
     } else {
-      console.log('Email sent successfully:', data?.id);
+      console.log('Email sent successfully via Resend. Email ID:', data?.id);
     }
     
     res.status(200).json({ 
       message: 'Feedback submitted successfully',
-      emailSent: !error 
+      emailSent: !error,
+      feedbackId: newFeedback._id
     });
     
   } catch (error) {
@@ -96,11 +132,12 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     message: 'Server is running',
+    domain: 'webburnstech.dev',
     timestamp: new Date().toISOString()
   });
 });
 
-// Get all feedback (optional - for admin purposes)
+// Get all feedback (for admin purposes)
 app.get('/api/feedback', async (req, res) => {
   try {
     const feedbacks = await Feedback.find().sort({ date: -1 });
@@ -111,8 +148,23 @@ app.get('/api/feedback', async (req, res) => {
   }
 });
 
+// Get feedback by ID
+app.get('/api/feedback/:id', async (req, res) => {
+  try {
+    const feedback = await Feedback.findById(req.params.id);
+    if (!feedback) {
+      return res.status(404).json({ error: 'Feedback not found' });
+    }
+    res.status(200).json(feedback);
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Resend API Key: ${RESEND_API_KEY ? 'Configured' : 'Missing'}`);
+  console.log(`Domain: webburnstech.dev (Verified)`);
 });
