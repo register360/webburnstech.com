@@ -1,0 +1,40 @@
+cff-version: "1.2.0"
+message: "If you use WebburnsTech in academic work, please cite the project using the metadata below. When referencing a development branch, include the branch name and commit SHA to ensure reproducibility."
+title: "WebburnsTech"
+version: "main"
+url: "https://github.com/register360/webburnstech.com"
+abstract: >-
+  WebburnsTech is a cutting-edge digital solutions provider, dedicated to empowering businesses
+  and individuals through innovative technology and exceptional service. This repository contains the
+  web assets, client-side code, and documentation used to build and operate the WebburnsTech public site
+  and related demos.
+authors:
+  - family-names: "Tirukoti"
+    given-names: "Vinay"
+    affiliation: "WebburnsTech"
+    email: "vinayvivek070@gmail.com"
+  - name: "WebburnsTech Team"
+    affiliation: "WebburnsTech"
+identifiers:
+  - type: "URL"
+    value: "https://github.com/register360/webburnstech.com"
+date-released: "2025-10-19"
+repository-code: "https://github.com/register360/webburnstech.com"
+keywords:
+  - web
+  - html
+  - javascript
+  - css
+  - website
+license: "MIT"
+type: "software"
+preferred-citation:
+  - type: "bibtex"
+    value: |
+      @misc{webburnstech_2025,
+        title = {WebburnsTech},
+        author = {Tirukoti, Vinay and WebburnsTech Team},
+        year = {2025},
+        howpublished = {\url{https://github.com/register360/webburnstech.com}},
+        note = {commit: <commit-sha>, branch: <branch-name>}
+      }
