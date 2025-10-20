@@ -4,7 +4,7 @@
 
 ### Building the Future of the Web Today
 
-[![Website](https://img.shields.io/badge/Website-weburnstech.ct.ws-6c63ff?style=for-the-badge&logo=google-chrome&logoColor=white)](http://www.webburnstech.dev/)
+[![Website](https://img.shields.io/badge/Website-webburnstech.dev-6c63ff?style=for-the-badge&logo=google-chrome&logoColor=white)](http://www.webburnstech.dev/)
 [![GitHub](https://img.shields.io/badge/GitHub-register360-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/register360/webburnstech.com)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](CONTRIBUTING.md)
