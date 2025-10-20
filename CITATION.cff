@@ -1,40 +1,29 @@
 cff-version: "1.2.0"
-message: "If you use WebburnsTech in academic work, please cite the project using the metadata below. When referencing a development branch, include the branch name and commit SHA to ensure reproducibility."
+message: "If you use this work in your research, project, or course material, please cite WebburnsTech using the information below."
 title: "WebburnsTech"
-version: "main"
-url: "https://github.com/register360/webburnstech.com"
-abstract: >-
-  WebburnsTech is a cutting-edge digital solutions provider, dedicated to empowering businesses
-  and individuals through innovative technology and exceptional service. This repository contains the
-  web assets, client-side code, and documentation used to build and operate the WebburnsTech public site
-  and related demos.
-authors:
-  - family-names: "Tirukoti"
-    given-names: "Vinay"
-    affiliation: "WebburnsTech"
-    email: "vinayvivek070@gmail.com"
-  - name: "WebburnsTech Team"
-    affiliation: "WebburnsTech"
-identifiers:
-  - type: "URL"
-    value: "https://github.com/register360/webburnstech.com"
-date-released: "2025-10-19"
-repository-code: "https://github.com/register360/webburnstech.com"
+version: "1.0.0"
+date-released: "2025-10-20"
+url: "https://www.webburnstech.dev"
 keywords:
-  - web
-  - html
-  - javascript
-  - css
-  - website
+  - web development
+  - open source
+  - web apps
+  - technology
+  - educational tools
 license: "MIT"
-type: "software"
+authors:
+  - family-names: "Vinay"
+    given-names: "Tirukoti"
+    email: "support@webburnstech.dev"
+    affiliation: "WebburnsTech"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
 preferred-citation:
   - type: "bibtex"
     value: |
       @misc{webburnstech_2025,
         title = {WebburnsTech},
-        author = {Tirukoti, Vinay and WebburnsTech Team},
+        author = {Tirukoti Vinay},
         year = {2025},
-        howpublished = {\url{https://github.com/register360/webburnstech.com}},
-        note = {commit: <commit-sha>, branch: <branch-name>}
+        url = {https://www.webburnstech.dev},
+        publisher = {WebburnsTech},
       }
