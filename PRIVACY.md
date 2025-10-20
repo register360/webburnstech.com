@@ -100,7 +100,7 @@ You have the right to:
 ### 🔹 How to Exercise Your Rights
 1. **Account Settings**: Update profile information directly
 2. **Data Export**: Use our self-service tools
-3. **Deletion Requests**: Contact privacy@webburnstech.com
+3. **Deletion Requests**: Contact privacy@webburnstech.dev
 4. **Opt-out**: Adjust notification preferences
 
 ### 🔹 GitHub-Specific Controls
@@ -138,12 +138,12 @@ We integrate with these services (review their privacy policies):
 ## 📞 Contact Information
 
 ### Privacy Team
-- **Email**: privacy@webburnstech.com
+- **Email**: privacy@webburnstech.dev
 - **Issues**: [Create a private security advisory](https://github.com/register360/webburnstech.com/security/advisories)
 - **Mail**: [Physical address for legal notices]
 
 ### Data Protection Officer
-- **Contact**: dpo@webburnstech.com
+- **Contact**: dpo@webburnstech.dev
 
 ## ⚖️ Legal Basis for Processing (GDPR)
 
@@ -204,7 +204,7 @@ We respect all applicable privacy laws and regulations worldwide. Our commitment
 **A**: While possible through pseudonyms, complete anonymity is difficult in open-source communities due to the public nature of contributions.
 
 ### Q: How do I report a privacy concern?
-**A**: Contact privacy@webburnstech.com or create a private security advisory in our repository.
+**A**: Contact privacy@webburnstech.dev or create a private security advisory in our repository.
 
 ### Q: What happens to my data if I delete my account?
 **A**: We remove personal information from our systems, but public contributions remain as part of the project history.
@@ -217,8 +217,8 @@ We respect all applicable privacy laws and regulations worldwide. Our commitment
 
 We're committed to building trust through transparency and responsible data practices.
 
-**Have questions?** Contact our privacy team at privacy@webburnstech.com
+**Have questions?** Contact our privacy team at privacy@webburnstech.dev
 
-*This policy is version 1.0 and effective as of [Date]*
+*This policy is version 1.0 and effective as of 21-10-2025*
 
 </div>
