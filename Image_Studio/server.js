@@ -1,480 +1,306 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
-import compression from 'compression';
-import morgan from 'morgan';
-import dotenv from 'dotenv';
-import admin from 'firebase-admin';
-import Replicate from 'replicate';
-import Joi from 'joi';
-import sharp from 'sharp';
-import multer from 'multer';
-import { v4 as uuidv4 } from 'uuid';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import nodeCron from 'node-cron';
-
-// Load environment variables
-dotenv.config();
+const express = require('express');
+const cors = require('cors');
+const admin = require('firebase-admin');
+const axios = require('axios');
+const { Storage } = require('@google-cloud/storage');
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 3001;
 
-// Security Middleware
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
-
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use(limiter);
-
-// Compression
-app.use(compression());
-
-// Logging
-app.use(morgan('combined'));
-
-// CORS
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://webburns-ai-studio.vercel.app', 'https://webburnstech.ct.ws']
-    : ['http://localhost:3000', 'http://127.0.0.1:3000','http://127.0.0.1:5500'],
-  credentials: true
-}));
-
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Middleware
+app.use(cors());
+app.use(express.json());
 
 // Initialize Firebase Admin
-const serviceAccount = {
-  type: "service_account",
-  project_id: process.env.FIREBASE_PROJECT_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  client_email: process.env.FIREBASE_CLIENT_EMAIL
-};
-
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL
+  }),
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET
 });
 
 const db = admin.firestore();
+const storage = new Storage();
+const bucket = storage.bucket(process.env.FIREBASE_STORAGE_BUCKET);
 
-// Initialize Replicate
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
+// Hugging Face Configuration
+const HUGGINGFACE_MODELS = {
+  'realistic': 'runwayml/stable-diffusion-v1-5',
+  'anime': '22h/vintedois-diffusion-v0-1',
+  'digital-art': 'wavymulder/Analog-Diffusion',
+  'fantasy': 'dreamlike-art/dreamlike-diffusion-1.0',
+  'default': 'runwayml/stable-diffusion-v1-5'
+};
 
-// Input Validation Schemas
-const generateImageSchema = Joi.object({
-  prompt: Joi.string().min(5).max(1000).required(),
-  style: Joi.string().valid('realistic', 'fantasy', 'anime', 'digital-art', 'photographic').default('realistic'),
-  size: Joi.string().valid('512x512', '768x768', '1024x1024').default('512x512'),
-  guidanceScale: Joi.number().min(1).max(20).default(7.5)
-});
+// Utility function to upload image to Firebase Storage
+async function uploadToStorage(imageBuffer, fileName) {
+  const file = bucket.file(`generated-images/${fileName}-${Date.now()}.png`);
+  
+  await file.save(imageBuffer, {
+    metadata: {
+      contentType: 'image/png'
+    }
+  });
+  
+  // Make the file publicly accessible
+  await file.makePublic();
+  
+  return `https://storage.googleapis.com/${bucket.name}/${file.name}`;
+}
 
-const enhanceImageSchema = Joi.object({
-  imageUrl: Joi.string().uri().required(),
-  enhancementType: Joi.string().valid('upscale', 'remove-bg', 'anime-style').required()
-});
+// Generate image using Hugging Face Inference API
+async function generateImageWithHuggingFace(prompt, style = 'realistic', size = '512x512') {
+  try {
+    const model = HUGGINGFACE_MODELS[style] || HUGGINGFACE_MODELS.default;
+    
+    console.log(`Generating image with model: ${model}`);
+    console.log(`Prompt: ${prompt}`);
+    
+    const [width, height] = size.split('x').map(Number);
+    
+    const response = await axios.post(
+      `https://api-inference.huggingface.co/models/${model}`,
+      {
+        inputs: prompt,
+        parameters: {
+          width: width,
+          height: height,
+          num_inference_steps: 20,
+          guidance_scale: 7.5
+        }
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        responseType: 'arraybuffer',
+        timeout: 60000 // 60 second timeout
+      }
+    );
+
+    console.log('Hugging Face API response received');
+    
+    // Convert array buffer to buffer
+    const imageBuffer = Buffer.from(response.data);
+    
+    // Upload to Firebase Storage
+    const imageUrl = await uploadToStorage(imageBuffer, 'generated');
+    
+    return {
+      imageUrl,
+      generationId: `hf-${Date.now()}`,
+      model: model
+    };
+    
+  } catch (error) {
+    console.error('Hugging Face generation error:', error.response?.data || error.message);
+    
+    if (error.response?.status === 503) {
+      // Model is loading, retry after delay
+      throw new Error('Model is loading, please try again in 30 seconds');
+    } else if (error.response?.status === 429) {
+      throw new Error('Rate limit exceeded, please try again later');
+    } else if (error.response?.status === 401) {
+      throw new Error('Invalid API token');
+    } else {
+      throw new Error(`Image generation failed: ${error.response?.data?.error || error.message}`);
+    }
+  }
+}
+
+// Enhanced image generation with fallback
+async function generateImageWithFallback(prompt, style, size) {
+  try {
+    return await generateImageWithHuggingFace(prompt, style, size);
+  } catch (error) {
+    console.error('Primary generation failed, using fallback:', error.message);
+    
+    // Fallback to a different model
+    try {
+      console.log('Trying fallback model...');
+      return await generateImageWithHuggingFace(prompt, 'default', size);
+    } catch (fallbackError) {
+      console.error('Fallback also failed:', fallbackError.message);
+      throw new Error('All image generation services are currently unavailable');
+    }
+  }
+}
 
 // Authentication middleware
-const authenticate = async (req, res, next) => {
+async function authenticateToken(req, res, next) {
   try {
-    const token = req.headers.authorization?.split('Bearer ')[1];
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
-    
+
+    const token = authHeader.split('Bearer ')[1];
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken;
     next();
   } catch (error) {
     console.error('Authentication error:', error);
-    res.status(401).json({ error: 'Invalid token' });
+    res.status(401).json({ error: 'Unauthorized' });
   }
-};
+}
 
-// Check user's generation limit
-const checkGenerationLimit = async (userId) => {
-  try {
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
-    
-    if (!userDoc.exists) {
-      // Create new user document
-      await userRef.set({
-        plan: 'free',
-        generationsToday: 0,
-        lastReset: new Date().toISOString().split('T')[0],
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        totalGenerations: 0
-      });
-      return { canGenerate: true, remaining: 5, plan: 'free' };
-    }
-    
-    const userData = userDoc.data();
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Reset counter if it's a new day
-    if (userData.lastReset !== today) {
-      await userRef.update({
-        generationsToday: 0,
-        lastReset: today
-      });
-      const limit = userData.plan === 'free' ? 5 : userData.plan === 'premium' ? 20 : 1000;
-      return { canGenerate: true, remaining: limit, plan: userData.plan };
-    }
-    
-    const limit = userData.plan === 'free' ? 5 : userData.plan === 'premium' ? 20 : 1000;
-    const remaining = limit - userData.generationsToday;
-    
-    return {
-      canGenerate: remaining > 0,
-      remaining: Math.max(0, remaining),
-      plan: userData.plan
-    };
-  } catch (error) {
-    console.error('Error checking generation limit:', error);
-    return { canGenerate: false, remaining: 0, plan: 'free' };
-  }
-};
+// Routes
 
-// Increment generation count
-const incrementGenerationCount = async (userId) => {
+// Generate image endpoint
+app.post('/api/generate-image', authenticateToken, async (req, res) => {
   try {
-    const userRef = db.collection('users').doc(userId);
-    await userRef.update({
-      generationsToday: admin.firestore.FieldValue.increment(1),
-      totalGenerations: admin.firestore.FieldValue.increment(1)
+    const { prompt, style, size, guidanceScale } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    console.log(`Generation request from user: ${req.user.uid}`);
+    console.log(`Prompt: ${prompt}, Style: ${style}, Size: ${size}`);
+
+    // Check user's generation limit
+    const userStats = await getUserStats(req.user.uid);
+    const limit = userStats.plan === 'free' ? 5 : userStats.plan === 'premium' ? 20 : 1000;
+    
+    if (userStats.generationsToday >= limit) {
+      return res.status(429).json({ error: 'Daily generation limit reached' });
+    }
+
+    // Generate image
+    const result = await generateImageWithFallback(prompt, style, size);
+    
+    // Save generation to Firestore
+    await db.collection('generations').add({
+      userId: req.user.uid,
+      imageUrl: result.imageUrl,
+      prompt: prompt,
+      style: style,
+      size: size,
+      model: result.model,
+      timestamp: admin.firestore.FieldValue.serverTime(),
+      generationId: result.generationId
     });
-  } catch (error) {
-    console.error('Error incrementing generation count:', error);
-  }
-};
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
+    // Update user stats
+    await updateUserStats(req.user.uid);
 
-// Image Generation Endpoint
-app.post('/api/generate-image', authenticate, async (req, res) => {
-  try {
-    // Validate input
-    const { error, value } = generateImageSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
-    }
-
-    const { prompt, style, size, guidanceScale } = value;
-    const userId = req.user.uid;
-    
-    // Check generation limit
-    const limitCheck = await checkGenerationLimit(userId);
-    if (!limitCheck.canGenerate) {
-      return res.status(429).json({ 
-        error: 'Daily generation limit reached',
-        limit: limitCheck.remaining,
-        plan: limitCheck.plan
-      });
-    }
-    
-    // Enhanced prompt based on style
-    let enhancedPrompt = prompt;
-    const styleModifiers = {
-      realistic: 'photorealistic, highly detailed, realistic lighting, 8K',
-      fantasy: 'fantasy art, magical, epic, concept art, detailed',
-      anime: 'anime style, Japanese animation, vibrant colors, detailed',
-      'digital-art': 'digital art, trending on artstation, concept art, detailed',
-      photographic: 'professional photography, sharp focus, studio lighting, 8K'
-    };
-    
-    if (styleModifiers[style]) {
-      enhancedPrompt += `, ${styleModifiers[style]}`;
-    }
-    
-    // Generate image using Replicate (Stable Diffusion)
-    const output = await replicate.run(
-      "stability-ai/stable-diffusion:27b93a2413e7f36cd83da926f3656280b2931564ff050bf9575f1fdf9bcd7478",
-      {
-        input: {
-          prompt: enhancedPrompt,
-          width: parseInt(size.split('x')[0]),
-          height: parseInt(size.split('x')[1]),
-          num_outputs: 1,
-          guidance_scale: parseFloat(guidanceScale),
-          num_inference_steps: 50
-        }
-      }
-    );
-    
-    const imageUrl = output[0];
-    
-    // Save generation to user's history
-    const generationRef = db.collection('generations').doc();
-    await generationRef.set({
-      userId,
-      prompt,
-      enhancedPrompt,
-      style,
-      size,
-      guidanceScale,
-      imageUrl,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      version: 'original',
-      generationId: generationRef.id
-    });
-    
-    // Increment generation count
-    await incrementGenerationCount(userId);
-    
     res.json({
-      imageUrl,
-      generationId: generationRef.id,
-      remaining: limitCheck.remaining - 1,
-      plan: limitCheck.plan
+      imageUrl: result.imageUrl,
+      generationId: result.generationId
     });
-    
+
   } catch (error) {
     console.error('Image generation error:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate image. Please try again.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Image Enhancement Endpoint
-app.post('/api/enhance-image', authenticate, async (req, res) => {
+// Enhance image endpoint (placeholder - you can implement similar logic)
+app.post('/api/enhance-image', authenticateToken, async (req, res) => {
   try {
-    // Validate input
-    const { error, value } = enhanceImageSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
+    const { imageUrl, enhancementType } = req.body;
+    
+    if (!imageUrl || !enhancementType) {
+      return res.status(400).json({ error: 'Image URL and enhancement type are required' });
     }
 
-    const { imageUrl, enhancementType } = value;
-    const userId = req.user.uid;
-    
-    let enhancedImageUrl;
-    
-    if (enhancementType === 'upscale') {
-      // Use Real-ESRGAN for upscaling
-      enhancedImageUrl = await replicate.run(
-        "nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b",
-        {
-          input: {
-            image: imageUrl,
-            scale: 2
-          }
-        }
-      );
-    } else if (enhancementType === 'remove-bg') {
-      // Use background removal model
-      enhancedImageUrl = await replicate.run(
-        "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
-        {
-          input: {
-            image: imageUrl
-          }
-        }
-      );
-    } else if (enhancementType === 'anime-style') {
-      // Use anime style transfer
-      enhancedImageUrl = await replicate.run(
-        "cjwbw/animagine-xl:8b21ba0e2ccad35f86b7e4a7ef8c1b4cc6b4a93b1b2c2c4e4e4e4e4e4e4e4e4e",
-        {
-          input: {
-            image: imageUrl,
-            prompt: "anime style, Japanese animation, high quality"
-          }
-        }
-      );
-    } else {
-      return res.status(400).json({ error: 'Invalid enhancement type' });
-    }
-    
-    // Save enhanced image to user's history
-    const generationRef = db.collection('generations').doc();
-    await generationRef.set({
-      userId,
-      originalImage: imageUrl,
-      enhancementType,
-      imageUrl: enhancedImageUrl,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      version: enhancementType,
-      generationId: generationRef.id
-    });
-    
+    // For now, return the original image URL
+    // You can implement actual enhancement later
     res.json({
-      imageUrl: enhancedImageUrl,
-      generationId: generationRef.id
+      imageUrl: imageUrl,
+      enhancementType: enhancementType,
+      message: 'Enhancement feature coming soon'
     });
-    
+
   } catch (error) {
-    console.error('Image enhancement error:', error);
-    res.status(500).json({ 
-      error: 'Failed to enhance image. Please try again.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    console.error('Enhancement error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Get User's Generation History
-app.get('/api/user-generations', authenticate, async (req, res) => {
+// Get user stats
+app.get('/api/user-stats', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.uid;
-    const limit = parseInt(req.query.limit) || 12;
-    const page = parseInt(req.query.page) || 1;
-    const offset = (page - 1) * limit;
+    const stats = await getUserStats(req.user.uid);
+    res.json(stats);
+  } catch (error) {
+    console.error('Error getting user stats:', error);
+    res.status(500).json({ error: 'Failed to get user stats' });
+  }
+});
+
+// Get user generations
+app.get('/api/user-generations', authenticateToken, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
     
-    const generationsSnapshot = await db.collection('generations')
-      .where('userId', '==', userId)
+    const snapshot = await db.collection('generations')
+      .where('userId', '==', req.user.uid)
       .orderBy('timestamp', 'desc')
       .limit(limit)
-      .offset(offset)
       .get();
-    
+
     const generations = [];
-    generationsSnapshot.forEach(doc => {
-      const data = doc.data();
+    snapshot.forEach(doc => {
       generations.push({
         id: doc.id,
-        ...data,
-        timestamp: data.timestamp?.toDate?.() || data.timestamp
+        ...doc.data()
       });
     });
-    
-    // Get total count for pagination
-    const totalSnapshot = await db.collection('generations')
-      .where('userId', '==', userId)
-      .count()
-      .get();
-    
-    const total = totalSnapshot.data().count;
-    
-    res.json({ 
-      generations,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
+
+    res.json({ generations });
   } catch (error) {
-    console.error('Error fetching generations:', error);
-    res.status(500).json({ error: 'Failed to fetch generation history' });
+    console.error('Error getting user generations:', error);
+    res.status(500).json({ error: 'Failed to get user generations' });
   }
 });
 
-// Get User's Generation Stats
-app.get('/api/user-stats', authenticate, async (req, res) => {
-  try {
-    const userId = req.user.uid;
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
-    
-    if (!userDoc.exists) {
-      return res.json({
-        plan: 'free',
-        generationsToday: 0,
-        remaining: 5,
-        totalGenerations: 0
-      });
-    }
-    
-    const userData = userDoc.data();
-    const limit = userData.plan === 'free' ? 5 : userData.plan === 'premium' ? 20 : 1000;
-    const remaining = Math.max(0, limit - userData.generationsToday);
-    
-    res.json({
-      plan: userData.plan,
-      generationsToday: userData.generationsToday,
-      remaining,
-      totalGenerations: userData.totalGenerations || 0
-    });
-  } catch (error) {
-    console.error('Error fetching user stats:', error);
-    res.status(500).json({ error: 'Failed to fetch user stats' });
-  }
-});
+// Helper functions
+async function getUserStats(userId) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const snapshot = await db.collection('generations')
+    .where('userId', '==', userId)
+    .where('timestamp', '>=', today)
+    .get();
 
-// Delete Generation
-app.delete('/api/generation/:id', authenticate, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.uid;
-    
-    const generationRef = db.collection('generations').doc(id);
-    const generationDoc = await generationRef.get();
-    
-    if (!generationDoc.exists) {
-      return res.status(404).json({ error: 'Generation not found' });
-    }
-    
-    if (generationDoc.data().userId !== userId) {
-      return res.status(403).json({ error: 'Not authorized to delete this generation' });
-    }
-    
-    await generationRef.delete();
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting generation:', error);
-    res.status(500).json({ error: 'Failed to delete generation' });
-  }
-});
+  const generationsToday = snapshot.size;
+  
+  // Get user plan from Firestore (default to free)
+  const userDoc = await db.collection('users').doc(userId).get();
+  const userData = userDoc.data();
+  const plan = userData?.plan || 'free';
 
-// Update User Plan (for admin/internal use)
-app.patch('/api/user/plan', authenticate, async (req, res) => {
-  try {
-    const { plan } = req.body;
-    const userId = req.user.uid;
-    
-    if (!['free', 'premium', 'business'].includes(plan)) {
-      return res.status(400).json({ error: 'Invalid plan type' });
-    }
-    
-    const userRef = db.collection('users').doc(userId);
-    await userRef.update({ plan });
-    
-    res.json({ success: true, plan });
-  } catch (error) {
-    console.error('Error updating user plan:', error);
-    res.status(500).json({ error: 'Failed to update plan' });
-  }
-});
+  return {
+    generationsToday,
+    plan
+  };
+}
 
-// Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('Unhandled error:', error);
-  res.status(500).json({ 
-    error: 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+async function updateUserStats(userId) {
+  // Stats are calculated on-demand in getUserStats
+  // You might want to cache this for better performance
+}
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'WebBurns AI Studio API is running',
+    timestamp: new Date().toISOString()
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log('Hugging Face Models Available:');
+  Object.entries(HUGGINGFACE_MODELS).forEach(([style, model]) => {
+    console.log(`  ${style}: ${model}`);
+  });
 });
-
-// Start server
-app.listen(port, () => {
-  console.log(`🚀 WebBurns AI Image Studio server running on port ${port}`);
-  console.log(`📁 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${port}/health`);
-});
-
-export default app;
