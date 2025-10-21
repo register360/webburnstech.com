@@ -332,8 +332,6 @@ app.get('/', (req, res) => {
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
-  console.log('Available models:');
-  Object.entries(HUGGINGFACE_MODELS).forEach(([style, model]) => {
-    console.log(`  ${style}: ${model}`);
-  });
+  console.log('Using Prodia API for image generation');
+});
 });
