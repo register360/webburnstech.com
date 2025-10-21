@@ -334,4 +334,3 @@ app.listen(port, () => {
   console.log(`Server running on port ${port}`);
   console.log('Using Prodia API for image generation');
 });
-});
