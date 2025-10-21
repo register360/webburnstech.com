@@ -7,7 +7,7 @@ const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Initialize Firebase Admin using environment variables
+// Initialize Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert({
     type: "service_account",
@@ -48,23 +48,6 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-// Working Hugging Face Models (verified to work)
-const HUGGINGFACE_MODELS = {
-  'realistic': 'stabilityai/stable-diffusion-2-1',
-  'fantasy': 'prompthero/openjourney',
-  'anime': '22h/vintedois-diffusion-v0-1',
-  'digital-art': 'wavymulder/Analog-Diffusion',
-  'photographic': 'stabilityai/stable-diffusion-2-1',
-  'default': 'stabilityai/stable-diffusion-2-1'
-};
-
-// Alternative models if primary fails
-const FALLBACK_MODELS = [
-  'stabilityai/stable-diffusion-2-1',
-  'prompthero/openjourney',
-  'wavymulder/Analog-Diffusion'
-];
-
 // Style modifiers
 const styleModifiers = {
   realistic: 'photorealistic, highly detailed, realistic lighting, 4K, masterpiece',
@@ -74,127 +57,87 @@ const styleModifiers = {
   photographic: 'professional photography, sharp focus, studio lighting, 4K, high quality'
 };
 
-// Generate image using Hugging Face API with fallback
-async function generateImageWithHuggingFace(prompt, style = 'realistic', size = '512x512', guidanceScale = 7.5) {
-  const primaryModel = HUGGINGFACE_MODELS[style] || HUGGINGFACE_MODELS.default;
-  const modelsToTry = [primaryModel, ...FALLBACK_MODELS];
-  
-  let lastError = null;
-  
-  for (const model of modelsToTry) {
-    try {
-      console.log(`Trying model: ${model}`);
+// Prodia API - Free tier available
+async function generateImageWithProdia(prompt, style = 'realistic', size = '512x512', guidanceScale = 7.5) {
+  try {
+    console.log('Generating with Prodia API...');
+    
+    const modelMap = {
+      'realistic': 'dreamshaper_8_93211.safetensors [b18ce83a]',
+      'fantasy': 'dreamshaper_8_93211.safetensors [b18ce83a]',
+      'anime': 'anythingV5_PrtRE.safetensors [893e49b9]',
+      'digital-art': 'dreamshaper_8_93211.safetensors [b18ce83a]',
+      'photographic': 'realisticVisionV51_v51VAE.safetensors [64b2c51d]'
+    };
+    
+    // Create generation job
+    const createResponse = await axios.post('https://api.prodia.com/v1/job', {
+      model: modelMap[style] || modelMap.realistic,
+      prompt: prompt,
+      steps: 25,
+      cfg_scale: parseFloat(guidanceScale),
+      width: parseInt(size.split('x')[0]),
+      height: parseInt(size.split('x')[1]),
+      sampler: 'DPM++ 2M Karras'
+    }, {
+      headers: {
+        'X-Prodia-Key': process.env.PRODIA_API_KEY || 'demo' // Works without API key for demo
+      },
+      timeout: 30000
+    });
+    
+    const jobId = createResponse.data.job;
+    console.log('Prodia job created:', jobId);
+    
+    // Wait for completion
+    let attempts = 0;
+    const maxAttempts = 120; // 60 seconds max
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      const [width, height] = size.split('x').map(Number);
-      
-      const response = await axios.post(
-        `https://api-inference.huggingface.co/models/${model}`,
-        {
-          inputs: prompt,
-          parameters: {
-            width: width,
-            height: height,
-            num_inference_steps: 20,
-            guidance_scale: parseFloat(guidanceScale),
-            num_images_per_prompt: 1
-          }
+      const statusResponse = await axios.get(`https://api.prodia.com/v1/job/${jobId}`, {
+        headers: {
+          'X-Prodia-Key': process.env.PRODIA_API_KEY || 'demo'
         },
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
-            'Content-Type': 'application/json'
-          },
+        timeout: 10000
+      });
+      
+      console.log('Prodia status:', statusResponse.data.status);
+      
+      if (statusResponse.data.status === 'succeeded') {
+        // Download and convert to base64
+        const imageResponse = await axios.get(statusResponse.data.imageUrl, {
           responseType: 'arraybuffer',
-          timeout: 60000
-        }
-      );
-
-      console.log(`Success with model: ${model}`);
-      
-      // Convert to base64
-      const imageBuffer = Buffer.from(response.data);
-      
-      // Check if we got a valid image (PNG header)
-      if (imageBuffer.length < 8) {
-        throw new Error('Invalid image response from API');
-      }
-      
-      const base64Image = imageBuffer.toString('base64');
-      const imageDataUrl = `data:image/png;base64,${base64Image}`;
-      
-      return {
-        imageData: imageDataUrl,
-        generationId: `hf-${Date.now()}`,
-        model: model,
-        success: true
-      };
-      
-    } catch (error) {
-      lastError = error;
-      console.log(`Model ${model} failed:`, error.response?.status, error.response?.data?.toString() || error.message);
-      
-      // If it's a 503 (model loading), wait and retry
-      if (error.response?.status === 503) {
-        const waitTime = error.response.headers['x-wait-for-model'] || 30;
-        console.log(`Model is loading, waiting ${waitTime} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+          timeout: 30000
+        });
         
-        // Try the same model again after waiting
-        try {
-          const retryResponse = await axios.post(
-            `https://api-inference.huggingface.co/models/${model}`,
-            {
-              inputs: prompt,
-              parameters: {
-                width: 512,
-                height: 512,
-                num_inference_steps: 20,
-                guidance_scale: 7.5
-              }
-            },
-            {
-              headers: {
-                'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
-                'Content-Type': 'application/json'
-              },
-              responseType: 'arraybuffer',
-              timeout: 60000
-            }
-          );
-          
-          console.log(`Retry successful for model: ${model}`);
-          const imageBuffer = Buffer.from(retryResponse.data);
-          const base64Image = imageBuffer.toString('base64');
-          const imageDataUrl = `data:image/png;base64,${base64Image}`;
-          
-          return {
-            imageData: imageDataUrl,
-            generationId: `hf-${Date.now()}`,
-            model: model,
-            success: true
-          };
-        } catch (retryError) {
-          console.log(`Retry also failed for ${model}`);
-          continue; // Continue to next model
-        }
+        const imageBuffer = Buffer.from(imageResponse.data);
+        const base64Image = imageBuffer.toString('base64');
+        const imageDataUrl = `data:image/png;base64,${base64Image}`;
+        
+        return {
+          imageData: imageDataUrl,
+          generationId: `prodia-${Date.now()}`,
+          model: 'prodia',
+          success: true
+        };
+      } else if (statusResponse.data.status === 'failed') {
+        throw new Error('Prodia generation failed');
       }
       
-      // If it's a 404, try next model
-      if (error.response?.status === 404) {
-        console.log(`Model ${model} not found, trying next...`);
-        continue;
-      }
-      
-      // For other errors, wait a bit before trying next model
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      attempts++;
     }
+    
+    throw new Error('Prodia generation timeout');
+    
+  } catch (error) {
+    console.error('Prodia generation error:', error.message);
+    throw new Error(`Image generation failed: ${error.message}`);
   }
-  
-  // If all models failed
-  throw new Error(`All models failed. Last error: ${lastError?.response?.data?.toString() || lastError?.message}`);
 }
 
-// Check generation limit
+// Check generation limit and increment functions (same as before)
 const checkGenerationLimit = async (userId) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -238,7 +181,6 @@ const checkGenerationLimit = async (userId) => {
   }
 };
 
-// Increment generation count
 const incrementGenerationCount = async (userId) => {
   try {
     const userRef = db.collection('users').doc(userId);
@@ -252,70 +194,25 @@ const incrementGenerationCount = async (userId) => {
 };
 
 // Routes
-
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'WebBurns AI Studio API is running',
-    timestamp: new Date().toISOString(),
-    models: Object.keys(HUGGINGFACE_MODELS)
+    message: 'WebBurns AI Studio API with Prodia',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Test model availability
-app.get('/api/test-models', async (req, res) => {
-  try {
-    const testResults = {};
-    
-    for (const [style, model] of Object.entries(HUGGINGFACE_MODELS)) {
-      try {
-        const response = await axios.head(
-          `https://huggingface.co/api/models/${model}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`
-            },
-            timeout: 10000
-          }
-        );
-        testResults[style] = {
-          model: model,
-          status: response.status,
-          available: response.status === 200
-        };
-      } catch (error) {
-        testResults[style] = {
-          model: model,
-          status: error.response?.status || 'error',
-          available: false,
-          error: error.message
-        };
-      }
-      
-      // Wait between tests to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    
-    res.json({ testResults });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Generate image endpoint
 app.post('/api/generate-image', authenticate, async (req, res) => {
   try {
     const { prompt, style = 'realistic', size = '512x512', guidanceScale = 7.5 } = req.body;
     const userId = req.user.uid;
     
-    console.log('Generate image request received:', { userId, prompt, style, size });
+    console.log('Generate image request:', { userId, prompt, style });
     
     if (!prompt?.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
     
-    // Check generation limit
     const limitCheck = await checkGenerationLimit(userId);
     if (!limitCheck.canGenerate) {
       return res.status(429).json({ 
@@ -324,18 +221,13 @@ app.post('/api/generate-image', authenticate, async (req, res) => {
       });
     }
     
-    // Enhanced prompt
     let enhancedPrompt = prompt;
     if (styleModifiers[style]) {
       enhancedPrompt += `, ${styleModifiers[style]}`;
     }
     
-    console.log('Enhanced prompt:', enhancedPrompt);
+    const result = await generateImageWithProdia(enhancedPrompt, style, size, guidanceScale);
     
-    // Generate image with fallback
-    const result = await generateImageWithHuggingFace(enhancedPrompt, style, size, guidanceScale);
-    
-    // Save to Firestore
     const generationRef = db.collection('generations').doc();
     await generationRef.set({
       userId,
@@ -350,20 +242,18 @@ app.post('/api/generate-image', authenticate, async (req, res) => {
       model: result.model
     });
     
-    // Increment count
     await incrementGenerationCount(userId);
     
     res.json({
       imageUrl: result.imageData,
       generationId: generationRef.id,
-      remaining: limitCheck.remaining - 1,
-      model: result.model
+      remaining: limitCheck.remaining - 1
     });
     
   } catch (error) {
     console.error('Image generation error:', error);
     res.status(500).json({ 
-      error: error.message || 'Failed to generate image. Please try a different prompt or style.'
+      error: error.message || 'Failed to generate image'
     });
   }
 });
