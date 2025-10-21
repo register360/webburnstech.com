@@ -1,41 +1,91 @@
 {
   "name": "webburns-ai-image-studio",
   "version": "1.0.0",
-  "description": "WebBurns AI Image Studio - AI-powered image generation platform with Replicate API and Firebase backend.",
+  "description": "WebBurns AI Image Studio - AI-powered image generation and editing platform",
   "main": "server.js",
   "type": "module",
-   "scripts": {
+  "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "prod": "NODE_ENV=production node server.js",
+    "test": "jest --verbose",
+    "test:watch": "jest --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "deploy": "npm run lint && npm run test && npm start",
+    "setup": "npm install && npm run lint:fix"
   },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.1",
-    "firebase-admin": "^12.6.0",
-    "replicate": "^0.28.1",
-    "body-parser": "^1.20.3",
-    "uuid": "^10.0.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.7"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "author": "WebBurnsTech Team",
+  "keywords": [
+    "ai",
+    "image-generation",
+    "stable-diffusion",
+    "firebase",
+    "web-app",
+    "webburns",
+    "image-editing"
+  ],
+  "author": "WebBurnsTech",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/WebburnsTech/webburns-ai-image-studio"
+    "url": "https://github.com/webburnstech/ai-image-studio.git"
   },
-  "keywords": [
-    "webburns",
-    "ai",
-    "image-generator",
-    "replicate",
-    "firebase",
-    "express",
-    "nodejs"
-  ]
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "firebase-admin": "^11.8.0",
+    "replicate": "^0.19.0",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.8.1",
+    "compression": "^1.7.4",
+    "morgan": "^1.10.0",
+    "joi": "^17.9.2",
+    "axios": "^1.4.0",
+    "sharp": "^0.32.1",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.1",
+    "node-cron": "^3.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.5.0",
+    "supertest": "^6.3.3",
+    "eslint": "^8.43.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "prettier": "^2.8.8",
+    "@types/node": "^20.3.1",
+    "cross-env": "^7.0.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "**/*.js",
+      "!node_modules/**",
+      "!coverage/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
+  },
+  "prettier": {
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "es5",
+    "printWidth": 100,
+    "tabWidth": 2
+  }
 }
