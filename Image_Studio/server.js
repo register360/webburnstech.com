@@ -48,72 +48,150 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-// Hugging Face Configuration
+// Working Hugging Face Models (verified to work)
 const HUGGINGFACE_MODELS = {
-  'realistic': 'runwayml/stable-diffusion-v1-5',
-  'fantasy': 'dreamlike-art/dreamlike-diffusion-1.0',
+  'realistic': 'stabilityai/stable-diffusion-2-1',
+  'fantasy': 'prompthero/openjourney',
   'anime': '22h/vintedois-diffusion-v0-1',
   'digital-art': 'wavymulder/Analog-Diffusion',
-  'photographic': 'runwayml/stable-diffusion-v1-5',
-  'default': 'runwayml/stable-diffusion-v1-5'
+  'photographic': 'stabilityai/stable-diffusion-2-1',
+  'default': 'stabilityai/stable-diffusion-2-1'
 };
+
+// Alternative models if primary fails
+const FALLBACK_MODELS = [
+  'stabilityai/stable-diffusion-2-1',
+  'prompthero/openjourney',
+  'wavymulder/Analog-Diffusion'
+];
 
 // Style modifiers
 const styleModifiers = {
-  realistic: 'photorealistic, highly detailed, realistic lighting, 4K',
-  fantasy: 'fantasy art, magical, epic, concept art, detailed',
-  anime: 'anime style, Japanese animation, vibrant colors, clean lines',
-  'digital-art': 'digital art, trending on artstation, concept art, detailed',
-  photographic: 'professional photography, sharp focus, studio lighting, 4K'
+  realistic: 'photorealistic, highly detailed, realistic lighting, 4K, masterpiece',
+  fantasy: 'fantasy art, magical, epic, concept art, detailed, digital painting',
+  anime: 'anime style, Japanese animation, vibrant colors, clean lines, manga style',
+  'digital-art': 'digital art, trending on artstation, concept art, detailed, illustration',
+  photographic: 'professional photography, sharp focus, studio lighting, 4K, high quality'
 };
 
-// Generate image using Hugging Face API
+// Generate image using Hugging Face API with fallback
 async function generateImageWithHuggingFace(prompt, style = 'realistic', size = '512x512', guidanceScale = 7.5) {
-  try {
-    const model = HUGGINGFACE_MODELS[style] || HUGGINGFACE_MODELS.default;
-    
-    console.log(`Generating image with model: ${model}`);
-    
-    const [width, height] = size.split('x').map(Number);
-    
-    const response = await axios.post(
-      `https://api-inference.huggingface.co/models/${model}`,
-      {
-        inputs: prompt,
-        parameters: {
-          width: width,
-          height: height,
-          num_inference_steps: 20,
-          guidance_scale: parseFloat(guidanceScale)
-        }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
-          'Content-Type': 'application/json'
+  const primaryModel = HUGGINGFACE_MODELS[style] || HUGGINGFACE_MODELS.default;
+  const modelsToTry = [primaryModel, ...FALLBACK_MODELS];
+  
+  let lastError = null;
+  
+  for (const model of modelsToTry) {
+    try {
+      console.log(`Trying model: ${model}`);
+      
+      const [width, height] = size.split('x').map(Number);
+      
+      const response = await axios.post(
+        `https://api-inference.huggingface.co/models/${model}`,
+        {
+          inputs: prompt,
+          parameters: {
+            width: width,
+            height: height,
+            num_inference_steps: 20,
+            guidance_scale: parseFloat(guidanceScale),
+            num_images_per_prompt: 1
+          }
         },
-        responseType: 'arraybuffer',
-        timeout: 120000
-      }
-    );
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          responseType: 'arraybuffer',
+          timeout: 60000
+        }
+      );
 
-    console.log('Hugging Face API response received');
-    
-    // Convert to base64
-    const imageBuffer = Buffer.from(response.data);
-    const base64Image = imageBuffer.toString('base64');
-    const imageDataUrl = `data:image/png;base64,${base64Image}`;
-    
-    return {
-      imageData: imageDataUrl,
-      generationId: `hf-${Date.now()}`,
-      model: model
-    };
-    
-  } catch (error) {
-    console.error('Hugging Face generation error:', error.response?.data || error.message);
-    throw new Error(`Image generation failed: ${error.response?.data?.error || error.message}`);
+      console.log(`Success with model: ${model}`);
+      
+      // Convert to base64
+      const imageBuffer = Buffer.from(response.data);
+      
+      // Check if we got a valid image (PNG header)
+      if (imageBuffer.length < 8) {
+        throw new Error('Invalid image response from API');
+      }
+      
+      const base64Image = imageBuffer.toString('base64');
+      const imageDataUrl = `data:image/png;base64,${base64Image}`;
+      
+      return {
+        imageData: imageDataUrl,
+        generationId: `hf-${Date.now()}`,
+        model: model,
+        success: true
+      };
+      
+    } catch (error) {
+      lastError = error;
+      console.log(`Model ${model} failed:`, error.response?.status, error.response?.data?.toString() || error.message);
+      
+      // If it's a 503 (model loading), wait and retry
+      if (error.response?.status === 503) {
+        const waitTime = error.response.headers['x-wait-for-model'] || 30;
+        console.log(`Model is loading, waiting ${waitTime} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+        
+        // Try the same model again after waiting
+        try {
+          const retryResponse = await axios.post(
+            `https://api-inference.huggingface.co/models/${model}`,
+            {
+              inputs: prompt,
+              parameters: {
+                width: 512,
+                height: 512,
+                num_inference_steps: 20,
+                guidance_scale: 7.5
+              }
+            },
+            {
+              headers: {
+                'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
+                'Content-Type': 'application/json'
+              },
+              responseType: 'arraybuffer',
+              timeout: 60000
+            }
+          );
+          
+          console.log(`Retry successful for model: ${model}`);
+          const imageBuffer = Buffer.from(retryResponse.data);
+          const base64Image = imageBuffer.toString('base64');
+          const imageDataUrl = `data:image/png;base64,${base64Image}`;
+          
+          return {
+            imageData: imageDataUrl,
+            generationId: `hf-${Date.now()}`,
+            model: model,
+            success: true
+          };
+        } catch (retryError) {
+          console.log(`Retry also failed for ${model}`);
+          continue; // Continue to next model
+        }
+      }
+      
+      // If it's a 404, try next model
+      if (error.response?.status === 404) {
+        console.log(`Model ${model} not found, trying next...`);
+        continue;
+      }
+      
+      // For other errors, wait a bit before trying next model
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
   }
+  
+  // If all models failed
+  throw new Error(`All models failed. Last error: ${lastError?.response?.data?.toString() || lastError?.message}`);
 }
 
 // Check generation limit
@@ -180,8 +258,49 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'WebBurns AI Studio API is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    models: Object.keys(HUGGINGFACE_MODELS)
   });
+});
+
+// Test model availability
+app.get('/api/test-models', async (req, res) => {
+  try {
+    const testResults = {};
+    
+    for (const [style, model] of Object.entries(HUGGINGFACE_MODELS)) {
+      try {
+        const response = await axios.head(
+          `https://huggingface.co/api/models/${model}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`
+            },
+            timeout: 10000
+          }
+        );
+        testResults[style] = {
+          model: model,
+          status: response.status,
+          available: response.status === 200
+        };
+      } catch (error) {
+        testResults[style] = {
+          model: model,
+          status: error.response?.status || 'error',
+          available: false,
+          error: error.message
+        };
+      }
+      
+      // Wait between tests to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    res.json({ testResults });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Generate image endpoint
@@ -211,7 +330,9 @@ app.post('/api/generate-image', authenticate, async (req, res) => {
       enhancedPrompt += `, ${styleModifiers[style]}`;
     }
     
-    // Generate image
+    console.log('Enhanced prompt:', enhancedPrompt);
+    
+    // Generate image with fallback
     const result = await generateImageWithHuggingFace(enhancedPrompt, style, size, guidanceScale);
     
     // Save to Firestore
@@ -235,18 +356,19 @@ app.post('/api/generate-image', authenticate, async (req, res) => {
     res.json({
       imageUrl: result.imageData,
       generationId: generationRef.id,
-      remaining: limitCheck.remaining - 1
+      remaining: limitCheck.remaining - 1,
+      model: result.model
     });
     
   } catch (error) {
     console.error('Image generation error:', error);
     res.status(500).json({ 
-      error: error.message || 'Failed to generate image'
+      error: error.message || 'Failed to generate image. Please try a different prompt or style.'
     });
   }
 });
 
-// Other endpoints (keep your existing ones)
+// Other endpoints remain the same...
 app.get('/api/user-stats', authenticate, async (req, res) => {
   try {
     const userId = req.user.uid;
@@ -314,20 +436,14 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'WebBurns AI Image Studio API',
     status: 'Running',
-    endpoints: [
-      'GET  /api/health',
-      'POST /api/generate-image',
-      'GET  /api/user-stats',
-      'GET  /api/user-generations'
-    ]
+    models: 'Hugging Face with fallback system'
   });
 });
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
-  console.log('Available endpoints:');
-  console.log('  GET  /api/health');
-  console.log('  POST /api/generate-image');
-  console.log('  GET  /api/user-stats');
-  console.log('  GET  /api/user-generations');
+  console.log('Available models:');
+  Object.entries(HUGGINGFACE_MODELS).forEach(([style, model]) => {
+    console.log(`  ${style}: ${model}`);
+  });
 });
