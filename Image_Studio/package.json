@@ -4,6 +4,10 @@
   "description": "WebBurns AI Image Studio - AI-powered image generation platform with Replicate API and Firebase backend.",
   "main": "server.js",
   "type": "module",
+   "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
