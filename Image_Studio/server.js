@@ -76,7 +76,7 @@ async function generateImageWithFreeAPI(prompt, style = 'realistic', size = '512
           }
         }, {
           headers: {
-            'Authorization': `Bearer ${process.env.HF_TOKEN || 'hf_demo'}`,
+            'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN || 'hf_demo'}`,
             'Content-Type': 'application/json'
           },
           responseType: 'arraybuffer',
