@@ -1,63 +1,68 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const axios = require('axios');
-const { Storage } = require('@google-cloud/storage');
-const path = require('path');
-require('dotenv').config();
 
 const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
+const port = process.env.PORT || 3001;
 
 // Initialize Firebase Admin
+const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL
-  }),
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+  credential: admin.credential.cert(serviceAccount)
 });
 
 const db = admin.firestore();
-const storage = new Storage();
-const bucket = storage.bucket(process.env.FIREBASE_STORAGE_BUCKET);
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' })); // Increased limit for base64 images
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Authentication middleware
+const authenticate = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split('Bearer ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ error: 'Invalid token' });
+  }
+};
 
 // Hugging Face Configuration
 const HUGGINGFACE_MODELS = {
   'realistic': 'runwayml/stable-diffusion-v1-5',
+  'fantasy': 'dreamlike-art/dreamlike-diffusion-1.0',
   'anime': '22h/vintedois-diffusion-v0-1',
   'digital-art': 'wavymulder/Analog-Diffusion',
-  'fantasy': 'dreamlike-art/dreamlike-diffusion-1.0',
+  'photographic': 'runwayml/stable-diffusion-v1-5',
   'default': 'runwayml/stable-diffusion-v1-5'
 };
 
-// Utility function to upload image to Firebase Storage
-async function uploadToStorage(imageBuffer, fileName) {
-  const file = bucket.file(`generated-images/${fileName}-${Date.now()}.png`);
-  
-  await file.save(imageBuffer, {
-    metadata: {
-      contentType: 'image/png'
-    }
-  });
-  
-  // Make the file publicly accessible
-  await file.makePublic();
-  
-  return `https://storage.googleapis.com/${bucket.name}/${file.name}`;
-}
+// Style modifiers for enhanced prompts
+const styleModifiers = {
+  realistic: 'photorealistic, highly detailed, realistic lighting, 4K',
+  fantasy: 'fantasy art, magical, epic, concept art, detailed',
+  anime: 'anime style, Japanese animation, vibrant colors, clean lines',
+  'digital-art': 'digital art, trending on artstation, concept art, detailed',
+  photographic: 'professional photography, sharp focus, studio lighting, 4K'
+};
 
-// Generate image using Hugging Face Inference API
-async function generateImageWithHuggingFace(prompt, style = 'realistic', size = '512x512') {
+// Generate image using Hugging Face API
+async function generateImageWithHuggingFace(prompt, style = 'realistic', size = '512x512', guidanceScale = 7.5) {
   try {
     const model = HUGGINGFACE_MODELS[style] || HUGGINGFACE_MODELS.default;
     
     console.log(`Generating image with model: ${model}`);
     console.log(`Prompt: ${prompt}`);
+    console.log(`Size: ${size}, Guidance Scale: ${guidanceScale}`);
     
     const [width, height] = size.split('x').map(Number);
     
@@ -69,7 +74,8 @@ async function generateImageWithHuggingFace(prompt, style = 'realistic', size = 
           width: width,
           height: height,
           num_inference_steps: 20,
-          guidance_scale: 7.5
+          guidance_scale: parseFloat(guidanceScale),
+          num_images_per_prompt: 1
         }
       },
       {
@@ -78,21 +84,20 @@ async function generateImageWithHuggingFace(prompt, style = 'realistic', size = 
           'Content-Type': 'application/json'
         },
         responseType: 'arraybuffer',
-        timeout: 60000 // 60 second timeout
+        timeout: 120000 // 2 minute timeout for image generation
       }
     );
 
-    console.log('Hugging Face API response received');
+    console.log('Hugging Face API response received successfully');
     
-    // Convert array buffer to buffer
+    // Convert image buffer to base64
     const imageBuffer = Buffer.from(response.data);
-    
-    // Upload to Firebase Storage
-    const imageUrl = await uploadToStorage(imageBuffer, 'generated');
+    const base64Image = imageBuffer.toString('base64');
+    const imageDataUrl = `data:image/png;base64,${base64Image}`;
     
     return {
-      imageUrl,
-      generationId: `hf-${Date.now()}`,
+      imageData: imageDataUrl,
+      generationId: `hf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       model: model
     };
     
@@ -100,207 +105,325 @@ async function generateImageWithHuggingFace(prompt, style = 'realistic', size = 
     console.error('Hugging Face generation error:', error.response?.data || error.message);
     
     if (error.response?.status === 503) {
-      // Model is loading, retry after delay
       throw new Error('Model is loading, please try again in 30 seconds');
     } else if (error.response?.status === 429) {
       throw new Error('Rate limit exceeded, please try again later');
     } else if (error.response?.status === 401) {
-      throw new Error('Invalid API token');
+      throw new Error('Invalid Hugging Face API token');
+    } else if (error.code === 'ECONNABORTED') {
+      throw new Error('Request timeout, please try again');
     } else {
       throw new Error(`Image generation failed: ${error.response?.data?.error || error.message}`);
     }
   }
 }
 
-// Enhanced image generation with fallback
-async function generateImageWithFallback(prompt, style, size) {
+// Check user's generation limit
+const checkGenerationLimit = async (userId) => {
   try {
-    return await generateImageWithHuggingFace(prompt, style, size);
-  } catch (error) {
-    console.error('Primary generation failed, using fallback:', error.message);
+    const today = new Date().toISOString().split('T')[0];
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
     
-    // Fallback to a different model
-    try {
-      console.log('Trying fallback model...');
-      return await generateImageWithHuggingFace(prompt, 'default', size);
-    } catch (fallbackError) {
-      console.error('Fallback also failed:', fallbackError.message);
-      throw new Error('All image generation services are currently unavailable');
+    if (!userDoc.exists) {
+      // Create new user document
+      await userRef.set({
+        plan: 'free',
+        generationsToday: 0,
+        lastReset: today,
+        totalGenerations: 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      return { canGenerate: true, remaining: 5, generationsToday: 0 };
     }
-  }
-}
-
-// Authentication middleware
-async function authenticateToken(req, res, next) {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    req.user = decodedToken;
-    next();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(401).json({ error: 'Unauthorized' });
-  }
-}
-
-// Routes
-
-// Generate image endpoint
-app.post('/api/generate-image', authenticateToken, async (req, res) => {
-  try {
-    const { prompt, style, size, guidanceScale } = req.body;
     
-    if (!prompt) {
+    const userData = userDoc.data();
+    
+    // Reset counter if it's a new day
+    if (userData.lastReset !== today) {
+      await userRef.update({
+        generationsToday: 0,
+        lastReset: today
+      });
+      const limit = userData.plan === 'free' ? 5 : userData.plan === 'premium' ? 20 : 1000;
+      return { canGenerate: true, remaining: limit, generationsToday: 0 };
+    }
+    
+    const limit = userData.plan === 'free' ? 5 : userData.plan === 'premium' ? 20 : 1000;
+    const generationsToday = userData.generationsToday || 0;
+    const remaining = limit - generationsToday;
+    
+    return {
+      canGenerate: remaining > 0,
+      remaining: Math.max(0, remaining),
+      generationsToday: generationsToday
+    };
+  } catch (error) {
+    console.error('Error checking generation limit:', error);
+    return { canGenerate: false, remaining: 0, generationsToday: 0 };
+  }
+};
+
+// Increment generation count
+const incrementGenerationCount = async (userId) => {
+  try {
+    const userRef = db.collection('users').doc(userId);
+    await userRef.update({
+      generationsToday: admin.firestore.FieldValue.increment(1),
+      totalGenerations: admin.firestore.FieldValue.increment(1),
+      lastGeneration: admin.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error incrementing generation count:', error);
+  }
+};
+
+// Image Generation Endpoint
+app.post('/api/generate-image', authenticate, async (req, res) => {
+  try {
+    const { prompt, style = 'realistic', size = '512x512', guidanceScale = 7.5 } = req.body;
+    const userId = req.user.uid;
+    
+    if (!prompt?.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
-
-    console.log(`Generation request from user: ${req.user.uid}`);
-    console.log(`Prompt: ${prompt}, Style: ${style}, Size: ${size}`);
-
-    // Check user's generation limit
-    const userStats = await getUserStats(req.user.uid);
-    const limit = userStats.plan === 'free' ? 5 : userStats.plan === 'premium' ? 20 : 1000;
     
-    if (userStats.generationsToday >= limit) {
-      return res.status(429).json({ error: 'Daily generation limit reached' });
+    // Check generation limit
+    const limitCheck = await checkGenerationLimit(userId);
+    if (!limitCheck.canGenerate) {
+      return res.status(429).json({ 
+        error: 'Daily generation limit reached',
+        limit: limitCheck.remaining
+      });
     }
-
-    // Generate image
-    const result = await generateImageWithFallback(prompt, style, size);
     
-    // Save generation to Firestore
-    await db.collection('generations').add({
-      userId: req.user.uid,
-      imageUrl: result.imageUrl,
+    // Enhanced prompt based on style
+    let enhancedPrompt = prompt;
+    if (styleModifiers[style]) {
+      enhancedPrompt += `, ${styleModifiers[style]}`;
+    }
+    
+    console.log(`Generating image for user ${userId}`);
+    console.log(`Enhanced prompt: ${enhancedPrompt}`);
+    
+    // Generate image using Hugging Face
+    const result = await generateImageWithHuggingFace(enhancedPrompt, style, size, guidanceScale);
+    
+    // Save generation to user's history with base64 image
+    const generationRef = db.collection('generations').doc();
+    const generationData = {
+      userId,
       prompt: prompt,
-      style: style,
-      size: size,
+      enhancedPrompt: enhancedPrompt,
+      style,
+      size,
+      guidanceScale,
+      imageData: result.imageData, // Store base64 image data
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      generationId: result.generationId,
       model: result.model,
-      timestamp: admin.firestore.FieldValue.serverTime(),
-      generationId: result.generationId
-    });
-
-    // Update user stats
-    await updateUserStats(req.user.uid);
-
+      version: 'huggingface'
+    };
+    
+    await generationRef.set(generationData);
+    
+    // Increment generation count
+    await incrementGenerationCount(userId);
+    
+    // Return response with base64 image data
     res.json({
-      imageUrl: result.imageUrl,
-      generationId: result.generationId
+      imageUrl: result.imageData, // Return base64 data as imageUrl for compatibility
+      generationId: generationRef.id,
+      remaining: limitCheck.remaining - 1,
+      model: result.model
     });
-
+    
   } catch (error) {
     console.error('Image generation error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Enhance image endpoint (placeholder - you can implement similar logic)
-app.post('/api/enhance-image', authenticateToken, async (req, res) => {
-  try {
-    const { imageUrl, enhancementType } = req.body;
-    
-    if (!imageUrl || !enhancementType) {
-      return res.status(400).json({ error: 'Image URL and enhancement type are required' });
-    }
-
-    // For now, return the original image URL
-    // You can implement actual enhancement later
-    res.json({
-      imageUrl: imageUrl,
-      enhancementType: enhancementType,
-      message: 'Enhancement feature coming soon'
+    res.status(500).json({ 
+      error: error.message || 'Failed to generate image. Please try again.',
+      details: error.message
     });
-
-  } catch (error) {
-    console.error('Enhancement error:', error);
-    res.status(500).json({ error: error.message });
   }
 });
 
-// Get user stats
-app.get('/api/user-stats', authenticateToken, async (req, res) => {
+// Image Enhancement Endpoint (Simplified - uses same generation logic)
+app.post('/api/enhance-image', authenticate, async (req, res) => {
   try {
-    const stats = await getUserStats(req.user.uid);
-    res.json(stats);
+    const { imageUrl, enhancementType, prompt } = req.body;
+    const userId = req.user.uid;
+    
+    if (!imageUrl && !prompt) {
+      return res.status(400).json({ error: 'Either image URL or prompt is required' });
+    }
+    
+    let enhancedPrompt = prompt || "enhance and improve this image";
+    
+    // Add enhancement-specific prompts
+    const enhancementPrompts = {
+      'upscale': 'high resolution, detailed, sharp, 4K, ultra detailed',
+      'remove-bg': 'transparent background, no background, isolated subject',
+      'anime-style': 'anime style, Japanese animation, vibrant colors, clean lines'
+    };
+    
+    if (enhancementPrompts[enhancementType]) {
+      enhancedPrompt += `, ${enhancementPrompts[enhancementType]}`;
+    }
+    
+    // For enhancement, we'll generate a new image with the enhancement prompt
+    const result = await generateImageWithHuggingFace(enhancedPrompt, 'realistic', '512x512', 7.5);
+    
+    // Save enhanced image to user's history
+    const generationRef = db.collection('generations').doc();
+    await generationRef.set({
+      userId,
+      originalImage: imageUrl, // Keep original base64 if provided
+      enhancementType,
+      prompt: enhancedPrompt,
+      imageData: result.imageData, // Store new base64 image
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      generationId: result.generationId,
+      version: `enhanced-${enhancementType}`
+    });
+    
+    res.json({
+      imageUrl: result.imageData,
+      generationId: generationRef.id,
+      enhancementType: enhancementType
+    });
+    
   } catch (error) {
-    console.error('Error getting user stats:', error);
-    res.status(500).json({ error: 'Failed to get user stats' });
+    console.error('Image enhancement error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to enhance image. Please try again.',
+      details: error.message
+    });
   }
 });
 
-// Get user generations
-app.get('/api/user-generations', authenticateToken, async (req, res) => {
+// Get User's Generation History
+app.get('/api/user-generations', authenticate, async (req, res) => {
   try {
+    const userId = req.user.uid;
     const limit = parseInt(req.query.limit) || 10;
     
-    const snapshot = await db.collection('generations')
-      .where('userId', '==', req.user.uid)
+    const generationsSnapshot = await db.collection('generations')
+      .where('userId', '==', userId)
       .orderBy('timestamp', 'desc')
       .limit(limit)
       .get();
-
+    
     const generations = [];
-    snapshot.forEach(doc => {
+    generationsSnapshot.forEach(doc => {
+      const data = doc.data();
       generations.push({
         id: doc.id,
-        ...doc.data()
+        imageUrl: data.imageData, // Return base64 data as imageUrl
+        prompt: data.prompt,
+        style: data.style,
+        size: data.size,
+        timestamp: data.timestamp,
+        enhancementType: data.enhancementType,
+        version: data.version
       });
     });
-
+    
     res.json({ generations });
   } catch (error) {
-    console.error('Error getting user generations:', error);
-    res.status(500).json({ error: 'Failed to get user generations' });
+    console.error('Error fetching generations:', error);
+    res.status(500).json({ error: 'Failed to fetch generation history' });
   }
 });
 
-// Helper functions
-async function getUserStats(userId) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const snapshot = await db.collection('generations')
-    .where('userId', '==', userId)
-    .where('timestamp', '>=', today)
-    .get();
+// Get User's Generation Stats
+app.get('/api/user-stats', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      return res.json({
+        plan: 'free',
+        generationsToday: 0,
+        remaining: 5,
+        totalGenerations: 0
+      });
+    }
+    
+    const userData = userDoc.data();
+    const limit = userData.plan === 'free' ? 5 : userData.plan === 'premium' ? 20 : 1000;
+    const generationsToday = userData.generationsToday || 0;
+    const remaining = Math.max(0, limit - generationsToday);
+    
+    res.json({
+      plan: userData.plan,
+      generationsToday: generationsToday,
+      remaining: remaining,
+      totalGenerations: userData.totalGenerations || 0
+    });
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    res.status(500).json({ error: 'Failed to fetch user stats' });
+  }
+});
 
-  const generationsToday = snapshot.size;
-  
-  // Get user plan from Firestore (default to free)
-  const userDoc = await db.collection('users').doc(userId).get();
-  const userData = userDoc.data();
-  const plan = userData?.plan || 'free';
-
-  return {
-    generationsToday,
-    plan
-  };
-}
-
-async function updateUserStats(userId) {
-  // Stats are calculated on-demand in getUserStats
-  // You might want to cache this for better performance
-}
+// Delete Generation
+app.delete('/api/generation/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.uid;
+    
+    const generationRef = db.collection('generations').doc(id);
+    const generationDoc = await generationRef.get();
+    
+    if (!generationDoc.exists) {
+      return res.status(404).json({ error: 'Generation not found' });
+    }
+    
+    if (generationDoc.data().userId !== userId) {
+      return res.status(403).json({ error: 'Not authorized to delete this generation' });
+    }
+    
+    await generationRef.delete();
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting generation:', error);
+    res.status(500).json({ error: 'Failed to delete generation' });
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'WebBurns AI Studio API is running',
-    timestamp: new Date().toISOString()
+    message: 'WebBurns AI Studio API is running with Hugging Face',
+    timestamp: new Date().toISOString(),
+    features: {
+      image_generation: true,
+      hugging_face: true,
+      firestore_storage: true,
+      base64_images: true
+    }
   });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log('Hugging Face Models Available:');
-  Object.entries(HUGGINGFACE_MODELS).forEach(([style, model]) => {
-    console.log(`  ${style}: ${model}`);
-  });
+// Test Hugging Face connection
+app.get('/api/test-huggingface', async (req, res) => {
+  try {
+    const response = await axios.get('https://huggingface.co/api/models', {
+      headers: {
+        'Authorization': `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`
+      }
+    });
+    res.json({ status: 'Connected', models: 'Accessible' });
+  } catch (error) {
+    res.status(500).json({ error: 'Hugging Face connection failed', details: error.message });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`WebBurns AI Image Studio server running on port ${port}`);
+  console.log('Using Hugging Face API with Firestore base64 storage');
+  console.log('Available models:', Object.keys(HUGGINGFACE_MODELS));
 });
