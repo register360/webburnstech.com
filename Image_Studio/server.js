@@ -230,7 +230,7 @@ async function generateImageWithFreeAPI(prompt, style = 'realistic', size = '512
   throw new Error(`All APIs failed. Last error: ${lastError?.message}`);
 }
 
-// Check generation limit
+// Enhanced checkGenerationLimit function
 const checkGenerationLimit = async (userId) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -249,12 +249,16 @@ const checkGenerationLimit = async (userId) => {
     }
     
     const userData = userDoc.data();
+    const lastReset = userData.lastReset || today;
     
-    if (userData.lastReset !== today) {
+    // Check if we need to reset (new day)
+    if (lastReset !== today) {
+      console.log(`Resetting daily limit for user ${userId}. Previous: ${lastReset}, Today: ${today}`);
       await userRef.update({
         generationsToday: 0,
         lastReset: today
       });
+      
       const limit = userData.plan === 'free' ? 5 : userData.plan === 'premium' ? 20 : 1000;
       return { canGenerate: true, remaining: limit, generationsToday: 0 };
     }
