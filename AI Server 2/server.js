@@ -291,7 +291,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    AI-Assistant:'Mistral AI'
+    Assistant:'Mistral AI'
   });
 });
 
