@@ -221,6 +221,16 @@ const chatResponse = await mistral.chat({
   }
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    AI-Assistant:'Mistral AI'
+  });
+});
+
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
