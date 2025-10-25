@@ -98,37 +98,37 @@ async function generateImageWithFreeAPI(prompt, style = 'realistic', size = '512
     },
     
     // API 2: Pollinations AI (completely free, no token)
-    // async () => {
-    //   try {
-    //     console.log('Trying Pollinations AI...');
-    //     const enhancedPrompt = prompt + (styleModifiers[style] ? `, ${styleModifiers[style]}` : '');
+    async () => {
+      try {
+        console.log('Trying Pollinations AI...');
+        const enhancedPrompt = prompt + (styleModifiers[style] ? `, ${styleModifiers[style]}` : '');
         
-    //     // Pollinations API - completely free, no token needed
-    //     const pollinationsResponse = await axios.get(`https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}`, {
-    //       responseType: 'arraybuffer',
-    //       params: {
-    //         width: 512,
-    //         height: 512,
-    //         seed: Date.now(),
-    //         nologo: true
-    //       },
-    //       timeout: 60000
-    //     });
+        // Pollinations API - completely free, no token needed
+        const pollinationsResponse = await axios.get(`https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}`, {
+          responseType: 'arraybuffer',
+          params: {
+            width: 512,
+            height: 512,
+            seed: Date.now(),
+            nologo: true
+          },
+          timeout: 60000
+        });
 
-    //     const imageBuffer = Buffer.from(pollinationsResponse.data);
-    //     const base64Image = imageBuffer.toString('base64');
-    //     const imageDataUrl = `data:image/png;base64,${base64Image}`;
+        const imageBuffer = Buffer.from(pollinationsResponse.data);
+        const base64Image = imageBuffer.toString('base64');
+        const imageDataUrl = `data:image/png;base64,${base64Image}`;
         
-    //     return {
-    //       imageData: imageDataUrl,
-    //       generationId: `poll-${Date.now()}`,
-    //       model: 'pollinations-ai',
-    //       success: true
-    //     };
-    //   } catch (error) {
-    //     throw new Error(`Pollinations: ${error.response?.status || error.message}`);
-    //   }
-    // },
+        return {
+          imageData: imageDataUrl,
+          generationId: `poll-${Date.now()}`,
+          model: 'pollinations-ai',
+          success: true
+        };
+      } catch (error) {
+        throw new Error(`Pollinations: ${error.response?.status || error.message}`);
+      }
+    },
     
     // API 3: Stable Diffusion API (free)
     async () => {
