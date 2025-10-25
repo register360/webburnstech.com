@@ -208,46 +208,60 @@ async function generateImageWithFreeAPI(prompt, style = 'realistic', size = '512
       }
     },
     
-    // API 5: Demo Fallback - Use placeholder images with text
-    async () => {
-      try {
-        console.log('Using demo fallback...');
-        // Create a simple canvas-based image as fallback
-        const { createCanvas } = require('canvas');
-        const canvas = createCanvas(512, 512);
-        const ctx = canvas.getContext('2d');
-        
-        // Create gradient background
-        const gradient = ctx.createLinearGradient(0, 0, 512, 512);
-        gradient.addColorStop(0, '#8B5CF6');
-        gradient.addColorStop(1, '#EC4899');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 512, 512);
-        
-        // Add text
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('AI Image Studio', 256, 200);
-        ctx.font = '16px Arial';
-        ctx.fillText('Demo Mode - Backend Setup Required', 256, 250);
-        ctx.fillText(`Prompt: ${prompt.substring(0, 30)}...`, 256, 300);
-        ctx.fillText('Gemini 2.5 Flash Enhanced', 256, 350);
-        
-        const buffer = canvas.toBuffer('image/png');
-        const base64Image = buffer.toString('base64');
-        const imageDataUrl = `data:image/png;base64,${base64Image}`;
-        
-        return {
-          imageData: imageDataUrl,
-          generationId: `demo-${Date.now()}`,
-          model: 'demo-mode',
-          success: true
-        };
-      } catch (error) {
-        throw new Error(`Demo: ${error.message}`);
-      }
-    }
+    // API 4: Demo Fallback - Use placeholder images
+async () => {
+  try {
+    console.log('Using demo fallback...');
+    const { createCanvas } = require('canvas');
+    const canvas = createCanvas(512, 512);
+    const ctx = canvas.getContext('2d');
+
+    // Create gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+    gradient.addColorStop(0, '#8B5CF6'); // purple
+    gradient.addColorStop(1, '#EC4899'); // pink
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Add border
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(10, 10, 492, 492);
+
+    // Add title text
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Title
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillText('WebBurns AI Image Studio', 256, 200);
+
+    // Subtitle
+    ctx.font = '18px sans-serif';
+    ctx.fillText('Demo Mode - Backend Setup Required', 256, 250);
+
+    // Prompt preview
+    ctx.font = '16px sans-serif';
+    ctx.fillStyle = '#E5E7EB'; // soft gray-white
+    const safePrompt = prompt ? prompt.substring(0, 40) : 'No prompt provided';
+    ctx.fillText(`Prompt: ${safePrompt}...`, 256, 300);
+
+    // Convert to base64
+    const buffer = canvas.toBuffer('image/png');
+    const base64Image = buffer.toString('base64');
+    const imageDataUrl = `data:image/png;base64,${base64Image}`;
+
+    return {
+      imageData: imageDataUrl,
+      generationId: `demo-${Date.now()}`,
+      model: 'demo-mode',
+      success: true
+    };
+  } catch (error) {
+    throw new Error(`Demo: ${error.message}`);
+  }
+}
   ];
 
   let lastError = null;
