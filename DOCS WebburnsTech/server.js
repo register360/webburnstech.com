@@ -97,7 +97,7 @@ const emailTemplates = {
                     
                     <div class="footer">
                         <p>If you need to add additional information to this ticket, please reply to this email.</p>
-                        <p>&copy; 2023 WebburnsTech. All rights reserved.</p>
+                        <p>&copy; 2024 WebburnsTech. All rights reserved.</p>
                     </div>
                 </div>
             </div>
@@ -206,7 +206,7 @@ app.post('/api/support', async (req, res) => {
         try {
             await resend.emails.send({
                 from: 'WebburnsTech Support <support@webburnstech.dev>',
-                to: 'support@webburnstech.dev',
+                to: 'webburnstech@gmail.com',
                 subject: `New ${priority} Priority Support Ticket - ${ticketId}`,
                 html: emailTemplates.internalNotification(ticket)
             });
