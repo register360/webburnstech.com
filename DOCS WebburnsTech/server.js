@@ -79,6 +79,15 @@ const emailTemplates = {
                         <p><strong>Category:</strong> ${ticket.category}</p>
                         <p><strong>Priority:</strong> ${ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}</p>
                         <p><strong>Submitted:</strong> ${new Date(ticket.createdAt).toLocaleString()}</p>
+                        <!-- Added Button -->
+                <p style="text-align:center; margin-top:20px;">
+                    <a href="https://docs.webburnstech.dev/ticket-status.html"
+                       style="display:inline-block; background:#6c63ff; color:#fff; text-decoration:none; 
+                              padding:12px 24px; border-radius:6px; font-weight:bold; 
+                              box-shadow:0 4px 6px rgba(0,0,0,0.1); transition:background 0.3s;">
+                        Check your ticket status
+                    </a>
+                </p>
                     </div>
                     
                     <h3>What happens next?</h3>
