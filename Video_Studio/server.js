@@ -244,38 +244,35 @@ class VideoGenerationManager {
   }
 
   async callCreatomateAPI(baseUrl, apiKey, type, data) {
-    const config = {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    };
+  const url = 'https://api.creatomate.com/v2/renders';
 
-    const payload = {
-      source: {
-        output_format: "mp4",
-        width: 1280,
-        height: 720,
-        elements: [
-          {
-            type: type === 'text' ? "text" : "image",
-            [type === 'text' ? "text" : "source"]: type === 'text' ? data.prompt : `data:image/jpeg;base64,${data.image.toString('base64')}`,
-            duration: data.duration || 5,
-            animations: [
-              {
-                type: "fade-in",
-                duration: 0.5
-              }
-            ]
-          }
-        ]
-      }
-    };
+  const payload = {
+    template_id: "6092311c-f447-4266-826a-bd94c63192cc",
+    modifications: {
+      "Video.source": type === 'image'
+        ? `data:image/jpeg;base64,${data.image.toString('base64')}`
+        : "https://creatomate.com/files/assets/7347c3b7-e1a8-4439-96f1-f3dfc95c3d28",
+      "Text-1.text": data.prompt || "Your Text And Video Here",
+      "Text-2.text": "Create & Automate\n[size 150%]Video[/size]"
+    }
+  };
 
-    const response = await axios.post(baseUrl, payload, config);
+  const config = {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    }
+  };
+
+  try {
+    const response = await axios.post(url, payload, config);
     return response.data;
+  } catch (error) {
+    console.error('Creatomate API Error:', error.response?.data || error.message);
+    throw new Error('Creatomate video generation failed');
   }
-
+}
+  
   getResolution(aspectRatio) {
     const resolutions = {
       '16:9': '1920x1080',
@@ -480,18 +477,20 @@ app.post('/api/text-to-video', authenticateToken, videoGenerationLimiter, async 
     const videoResult = await videoManager.generateVideoFromText(prompt, generationOptions);
 
     // Upload to Google Drive
-    let videoUrl;
-    if (videoResult.video_url || videoResult.video_data) {
-      const videoBuffer = videoResult.video_data || 
-        await this.downloadVideo(videoResult.video_url);
-      
-      const fileName = `video_${Date.now()}_${uuidv4()}.mp4`;
-      const driveResult = await driveManager.uploadVideo(videoBuffer, req.user.uid, fileName);
-      videoUrl = driveResult.directDownloadLink;
-    } else {
-      // If API returns a URL directly
-      videoUrl = videoResult.video_url;
-    }
+let videoUrl;
+let driveResult = null;
+
+if (videoResult.video_url || videoResult.video_data) {
+  const videoBuffer = videoResult.video_data 
+    ? videoResult.video_data 
+    : await app.prototype.downloadVideo(videoResult.video_url);
+  
+  const fileName = `video_${Date.now()}_${uuidv4()}.mp4`;
+  driveResult = await driveManager.uploadVideo(videoBuffer, req.user.uid, fileName);
+  videoUrl = driveResult.directDownloadLink;
+} else {
+  videoUrl = videoResult.video_url || null;
+}
 
     // Save to Firestore
     const videoData = {
