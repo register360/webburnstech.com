@@ -422,7 +422,7 @@ app.post('/api/ai/assist', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
 
     // Call Mistral AI API
-    const chatResponse = await mistralClient.chat({
+    const chatResponse = await mistral.chat({
       model: 'mistral-medium',
       messages: [{ role: 'user', content: query }],
     });
