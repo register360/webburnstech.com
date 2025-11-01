@@ -15,7 +15,7 @@
 
 **Next-generation web solutions for tomorrow's digital landscape**
 
-[🌐 Live Demo](http://www.webburnstech.dev/) • [📖 Documentation](#documentation) • [🤝 Contributing](CONTRIBUTING.md) • [💬 Community](#community)
+[🌐 Live Demo](https://www.webburnstech.dev/) • [📖 Documentation](https://docs.webburnstech.dev/) • [🤝 Contributing](CONTRIBUTING.md) • [💬 Community](https://community.webburnstech.dev/)
 
 </div>
 
