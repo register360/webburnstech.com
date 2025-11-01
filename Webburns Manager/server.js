@@ -135,7 +135,14 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Invalid token' });
+      // More specific error handling
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expired' });
+      } else if (err.name === 'JsonWebTokenError') {
+        return res.status(403).json({ error: 'Invalid token' });
+      } else {
+        return res.status(403).json({ error: 'Token verification failed' });
+      }
     }
     req.user = user;
     next();
@@ -279,7 +286,10 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     if (user.status !== 'approved') {
-      return res.status(403).json({ error: 'Account pending approval' });
+      return res.status(403).json({ 
+        error: 'Account pending approval',
+        status: user.status 
+      });
     }
 
     // Update last login
@@ -311,6 +321,15 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(401).json({ error: 'Invalid credentials' });
+     if (error.code === 'auth/user-not-found') {
+      return res.status(404).json({ error: 'User not found' });
+    } else if (error.code === 'auth/wrong-password') {
+      return res.status(401).json({ error: 'Invalid password' });
+    } else if (error.code === 'auth/too-many-requests') {
+      return res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
+    } else {
+      return res.status(500).json({ error: 'Login failed. Please try again.' });
+    }
   }
 });
 
@@ -324,6 +343,23 @@ app.get('/api/admin/pending-users', authenticateToken, requireAdmin, async (req,
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch pending users' });
   }
+});
+
+// Add a token refresh endpoint
+app.post('/api/auth/refresh', authenticateToken, (req, res) => {
+  // Generate new token with same user data
+  const token = jwt.sign(
+    { 
+      userId: req.user.userId, 
+      email: req.user.email, 
+      role: req.user.role,
+      userID: req.user.userID 
+    },
+    process.env.JWT_SECRET || 'your-secret-key',
+    { expiresIn: '24h' }
+  );
+
+  res.json({ token });
 });
 
 // Approve user
