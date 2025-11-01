@@ -178,7 +178,7 @@ const sendEmail = async (to, subject, html) => {
 
 // API Routes
 
-// User Registration
+// User Registration - FIXED VERSION
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, username } = req.body;
@@ -187,10 +187,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
-    // Ensure collection exists (Mongo will auto-create)
-    await Models.User.createCollection();
-    
-    // Check if user already exists in MongoDB
+    // Check if user already exists in MongoDB FIRST
     const existingUser = await Models.User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
@@ -198,13 +195,24 @@ app.post('/api/auth/register', async (req, res) => {
 
     let firebaseUser;
     try {
+      // Create user in Firebase Auth
       firebaseUser = await createUserWithEmailAndPassword(auth, email, password);
     } catch (firebaseError) {
-      if (firebaseError.code === 'auth/email-already-in-use') {
-        return res.status(400).json({ error: 'User already exists in Firebase' });
-      }
       console.error('Firebase registration error:', firebaseError);
-      return res.status(500).json({ error: 'Firebase registration failed' });
+      
+      // If Firebase fails but user doesn't exist in MongoDB, it's a fresh registration
+      if (firebaseError.code === 'auth/email-already-in-use') {
+        // Check if we have a record in MongoDB
+        const mongoUser = await Models.User.findOne({ email });
+        if (!mongoUser) {
+          // Firebase has user but MongoDB doesn't - fix the inconsistency
+          return res.status(400).json({ error: 'Email already in use. Please try logging in or use a different email.' });
+        } else {
+          return res.status(400).json({ error: 'User already exists' });
+        }
+      }
+      
+      return res.status(500).json({ error: 'Registration failed. Please try again.' });
     }
     
     // Create user in MongoDB with pending status
@@ -212,7 +220,8 @@ app.post('/api/auth/register', async (req, res) => {
       email,
       username,
       firebaseUID: firebaseUser.user.uid,
-      status: 'pending'
+      status: 'pending',
+      userID: generateUserID(username) // Generate ID immediately but user can't login until approved
     });
 
     await newUser.save();
@@ -240,7 +249,17 @@ app.post('/api/auth/register', async (req, res) => {
     
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    
+    // If MongoDB save fails but Firebase user was created, delete the Firebase user
+    if (firebaseUser) {
+      try {
+        await firebaseUser.user.delete();
+      } catch (deleteError) {
+        console.error('Failed to cleanup Firebase user:', deleteError);
+      }
+    }
+    
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
 });
 
@@ -603,6 +622,71 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
     valid: true, 
     user: req.user 
   });
+});
+
+// Cleanup function for inconsistent data
+app.post('/api/admin/cleanup-users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const allUsers = await Models.User.find({});
+    let fixedCount = 0;
+    
+    for (const user of allUsers) {
+      try {
+        // Check if Firebase user exists
+        const firebaseUser = await auth.getUserByEmail(user.email);
+        
+        // If Firebase user exists but MongoDB doesn't have firebaseUID, update it
+        if (firebaseUser && !user.firebaseUID) {
+          user.firebaseUID = firebaseUser.uid;
+          await user.save();
+          fixedCount++;
+        }
+      } catch (error) {
+        // Firebase user doesn't exist - this is an inconsistent record
+        if (error.code === 'auth/user-not-found') {
+          console.log(`Deleting inconsistent user: ${user.email}`);
+          await Models.User.findByIdAndDelete(user._id);
+          fixedCount++;
+        }
+      }
+    }
+    
+    res.json({ message: `Cleanup completed. Fixed ${fixedCount} user records.` });
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    res.status(500).json({ error: 'Cleanup failed' });
+  }
+});
+
+// Debug route to check user data
+app.get('/api/debug/users', async (req, res) => {
+  try {
+    const mongoUsers = await Models.User.find({});
+    const usersWithDetails = [];
+    
+    for (const user of mongoUsers) {
+      let firebaseExists = false;
+      try {
+        await auth.getUserByEmail(user.email);
+        firebaseExists = true;
+      } catch (error) {
+        firebaseExists = false;
+      }
+      
+      usersWithDetails.push({
+        email: user.email,
+        username: user.username,
+        status: user.status,
+        firebaseUID: user.firebaseUID,
+        firebaseExists: firebaseExists,
+        consistent: !!(user.firebaseUID && firebaseExists)
+      });
+    }
+    
+    res.json(usersWithDetails);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Real-time Code Editor with Socket.io
