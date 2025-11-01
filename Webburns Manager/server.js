@@ -182,15 +182,30 @@ const sendEmail = async (to, subject, html) => {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, username } = req.body;
-
+    
+    if (!email || !password || !username) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Ensure collection exists (Mongo will auto-create)
+    await Models.User.createCollection();
+    
     // Check if user already exists in MongoDB
     const existingUser = await Models.User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
-    // Create user in Firebase Auth
-    const firebaseUser = await createUserWithEmailAndPassword(auth, email, password);
+    let firebaseUser;
+    try {
+      firebaseUser = await createUserWithEmailAndPassword(auth, email, password);
+    } catch (firebaseError) {
+      if (firebaseError.code === 'auth/email-already-in-use') {
+        return res.status(400).json({ error: 'User already exists in Firebase' });
+      }
+      console.error('Firebase registration error:', firebaseError);
+      return res.status(500).json({ error: 'Firebase registration failed' });
+    }
     
     // Create user in MongoDB with pending status
     const newUser = new Models.User({
@@ -215,11 +230,14 @@ app.post('/api/auth/register', async (req, res) => {
       <a href="${process.env.ADMIN_PORTAL_URL}">Go to Admin Portal</a>
       `
     );
-
+    
+    console.log('✅ New user registered successfully:', email);
+    
     res.status(201).json({ 
       message: 'Registration successful. Waiting for admin approval.',
       user: { email, username, status: 'pending' }
     });
+    
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed' });
