@@ -42,12 +42,9 @@ const storage = getStorage(firebaseApp);
 // Resend Configuration
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const { MistralClient } = require("@mistralai/mistralai");
+const MistralClient = require('@mistralai/mistralai').default;
 // Initialize Mistral client
-const mistral = MistralClient({
-  apiKey: process.env.MISTRAL_API_KEY
-});
-
+const mistral = new MistralClient(process.env.MISTRAL_API_KEY);
 
 // Middleware
 app.use(cors());
