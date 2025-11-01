@@ -166,7 +166,7 @@ const generateUserID = (username) => {
 const sendEmail = async (to, subject, html) => {
   try {
     await resend.emails.send({
-      from: 'Webburns Manager <noreply@webburns.com>',
+      from: 'Webburns Manager <noreply@webburnstech.dev>',
       to,
       subject,
       html
