@@ -222,8 +222,19 @@ app.use((err, req, res, next) => {
     next();
 });
 
+// Routes
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Job Server Running - WebburnsTech Carrers',
+    timestamp: new Date().toISOString(),
+    jobs: ['Front-End Developers', 'Back-End Developers', 'UI/UX Designers', 'Mobile App Developers', 'Database Admin & Security Analyst', 'Software Engineers']
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
