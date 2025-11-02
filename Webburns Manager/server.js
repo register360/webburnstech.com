@@ -600,7 +600,17 @@ app.post('/api/user/stats', authenticateToken, async (req, res) => {
 app.post('/api/auth/admin-login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    
+    // First, try Firebase authentication
+    let firebaseUser;
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      firebaseUser = userCredential.user;
+    } catch (firebaseError) {
+      console.error('Firebase auth error:', firebaseError);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
     // Find admin user
     const adminUser = await Models.User.findOne({ 
       email, 
@@ -609,6 +619,8 @@ app.post('/api/auth/admin-login', async (req, res) => {
     });
 
     if (!adminUser) {
+      // Sign out from Firebase if not an admin in MongoDB
+      await auth.signOut();
       return res.status(401).json({ error: 'Invalid admin credentials' });
     }
 
@@ -636,7 +648,9 @@ app.post('/api/auth/admin-login', async (req, res) => {
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '8h' } // Shorter expiry for admin tokens
     );
-
+    
+     console.log('Admin login successful:', email);
+    
     res.json({
       token,
       user: {
@@ -692,6 +706,89 @@ app.post('/api/admin/cleanup-users', authenticateToken, requireAdmin, async (req
   } catch (error) {
     console.error('Cleanup error:', error);
     res.status(500).json({ error: 'Cleanup failed' });
+  }
+});
+
+// Get Admin Dashboard Stats
+app.get('/api/admin/stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const totalUsers = await Models.User.countDocuments({ status: 'approved' });
+    const pendingApprovals = await Models.User.countDocuments({ status: 'pending' });
+    const activeProjects = await Models.Project.countDocuments({ status: 'active' });
+    
+    // Calculate total lines of code
+    const users = await Models.User.find({ status: 'approved' });
+    const totalCodeLines = users.reduce((sum, user) => sum + (user.stats?.linesOfCode || 0), 0);
+
+    res.json({
+      totalUsers,
+      activeProjects,
+      pendingApprovals,
+      totalCodeLines
+    });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ error: 'Failed to load stats' });
+  }
+});
+
+// Get Active Users
+app.get('/api/admin/active-users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const activeUsers = await Models.User.find({ 
+      status: 'approved' 
+    }).select('username email userID lastLogin stats');
+    
+    // Get project counts for each user
+    const usersWithProjects = await Promise.all(
+      activeUsers.map(async (user) => {
+        const projectCount = await Models.Project.countDocuments({
+          assignedUsers: user._id
+        });
+        
+        return {
+          ...user.toObject(),
+          projectCount
+        };
+      })
+    );
+
+    res.json(usersWithProjects);
+  } catch (error) {
+    console.error('Active users error:', error);
+    res.status(500).json({ error: 'Failed to load active users' });
+  }
+});
+
+// Reject user
+app.post('/api/admin/reject-user/:userId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await Models.User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update user status to rejected
+    user.status = 'rejected';
+    await user.save();
+
+    // Send rejection email to user
+    await sendEmail(
+      user.email,
+      'Your Webburns Manager Account Application',
+      `
+      <h2>Account Application Status</h2>
+      <p>We regret to inform you that your Webburns Manager account application has not been approved at this time.</p>
+      <p>If you believe this is an error, please contact the administrator.</p>
+      `
+    );
+
+    res.json({ message: 'User rejected successfully' });
+  } catch (error) {
+    console.error('Rejection error:', error);
+    res.status(500).json({ error: 'Failed to reject user' });
   }
 });
 
