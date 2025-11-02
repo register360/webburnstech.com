@@ -284,16 +284,16 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-
-    if (user.status !== 'approved') {
+    
+    if (user.status == 'rejected') {
       return res.status(403).json({ 
-        error: 'Account pending approval',
+        error: 'Account rejected',
         status: user.status 
       });
       
-      if (user.status == 'rejected') {
+    if (user.status !== 'approved') {
       return res.status(403).json({ 
-        error: 'Account rejected',
+        error: 'Account pending approval',
         status: user.status 
       });
     }
