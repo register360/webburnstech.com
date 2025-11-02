@@ -955,6 +955,76 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
+// ======= HEALTH CHECK ROUTE =======
+app.get('/api/health', async (req, res) => {
+  const healthReport = {
+    service: 'Webburns Manager Backend',
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime().toFixed(2) + 's',
+    checks: {
+      mongoDB: 'unknown',
+      firebase: 'unknown',
+      resend: 'unknown'
+    }
+  };
+
+  try {
+    // --- Check MongoDB ---
+    const mongoState = mongoose.connection.readyState;
+    // 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
+    healthReport.checks.mongoDB = 
+      mongoState === 1 ? 'connected' :
+      mongoState === 2 ? 'connecting' :
+      mongoState === 3 ? 'disconnecting' :
+      'disconnected';
+
+    if (mongoState !== 1) healthReport.status = 'degraded';
+  } catch (error) {
+    healthReport.checks.mongoDB = 'error';
+    healthReport.status = 'degraded';
+  }
+
+  try {
+    // --- Check Firebase ---
+    // Ping Firebase app configuration
+    if (auth && auth.app && auth.app.options.projectId) {
+      healthReport.checks.firebase = 'connected';
+    } else {
+      healthReport.checks.firebase = 'not_initialized';
+      healthReport.status = 'degraded';
+    }
+  } catch (error) {
+    healthReport.checks.firebase = 'error';
+    healthReport.status = 'degraded';
+  }
+
+  try {
+    // --- Check Resend API (email service) ---
+    if (resend && resend.apiKey) {
+      healthReport.checks.resend = 'configured';
+    } else {
+      healthReport.checks.resend = 'missing_key';
+      healthReport.status = 'degraded';
+    }
+  } catch (error) {
+    healthReport.checks.resend = 'error';
+    healthReport.status = 'degraded';
+  }
+
+  // Add system info
+  healthReport.system = {
+    memoryUsageMB: (process.memoryUsage().rss / 1024 / 1024).toFixed(2),
+    nodeVersion: process.version,
+    platform: process.platform
+  };
+
+  // Return response
+  const statusCode = healthReport.status === 'ok' ? 200 : 503;
+  res.status(statusCode).json(healthReport);
+});
+
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Webburns Manager server running on port ${PORT}`);
