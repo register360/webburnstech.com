@@ -290,6 +290,12 @@ app.post('/api/auth/login', async (req, res) => {
         error: 'Account pending approval',
         status: user.status 
       });
+      
+      if (user.status == 'rejected') {
+      return res.status(403).json({ 
+        error: 'Account rejected',
+        status: user.status 
+      });
     }
 
     // Update last login
