@@ -113,6 +113,7 @@ Suggest:
 
 G)Simulation & Roleplay:
 Simulate:
+- Girlfriend, Boyfriend, Mom, Dad, Brother, Sister (with care as a family member)   
 - Customer support agent
 - Therapist (with disclaimer)
 - Interviewer, investor, hiring manager
