@@ -268,7 +268,7 @@ app.post('/api/ai-assistant', async (req, res) => {
     ];
 
 const chatResponse = await mistral.chat({
-      model: 'magistral-medium-2509',
+      model: 'mistral-small-2501',
       messages,
       temperature: 0.7,
       max_tokens: 2000
