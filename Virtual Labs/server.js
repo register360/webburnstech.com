@@ -12,7 +12,7 @@ const wss = new WebSocket.Server({ server });
 
 // Enhanced CORS configuration for production
 app.use(cors({
-    origin: '*',
+    origin: ['https://webburns-virtual-friend.onrender.com', 'http://localhost:3000', 'http://127.0.0.1:3000'],
     credentials: true
 }));
 
@@ -43,21 +43,22 @@ class VirtualFriendSession {
         this.elevenLabsWs = null;
         this.voiceId = null;
         this.isConnected = false;
-        this.buffer = [];
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        this.sessionId = Math.random().toString(36).substring(7);
     }
 
     async initialize(voiceGender) {
         this.voiceId = voiceGender === 'male' ? CONFIG.VOICE_ID_MALE : CONFIG.VOICE_ID_FEMALE;
+        console.log(`Initializing session ${this.sessionId} with voice: ${this.voiceId}`);
         await this.connectToElevenLabs();
     }
 
     async connectToElevenLabs() {
         try {
-            console.log('Initializing ElevenLabs connection with voice:', this.voiceId);
+            console.log(`[${this.sessionId}] Getting ElevenLabs WebSocket URL...`);
             
-            // Get ElevenLabs WebSocket URL
+            // Get ElevenLabs WebSocket URL for real-time streaming
             const response = await axios.post(
                 `https://api.elevenlabs.io/v1/realtime/tts`,
                 {
@@ -80,75 +81,95 @@ class VirtualFriendSession {
             );
 
             const { data: elevenLabsConfig } = response;
+            console.log(`[${this.sessionId}] ElevenLabs WebSocket URL received`);
             
             // Connect to ElevenLabs WebSocket
             this.elevenLabsWs = new WebSocket(elevenLabsConfig.url);
             
             this.elevenLabsWs.on('open', () => {
-                console.log('Connected to ElevenLabs WebSocket');
+                console.log(`[${this.sessionId}] Connected to ElevenLabs WebSocket`);
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
+                
+                // Send initial configuration to ElevenLabs
+                const configMessage = {
+                    text: " " // Empty text to initialize
+                };
+                this.elevenLabsWs.send(JSON.stringify(configMessage));
+                
                 this.sendToClient({ type: 'ready', message: 'Connected to virtual friend' });
+                this.sendToClient({ type: 'info', message: 'Speak now! I\'m listening...' });
             });
 
             this.elevenLabsWs.on('message', (data) => {
                 try {
-                    const message = JSON.parse(data);
+                    const message = JSON.parse(data.toString());
+                    console.log(`[${this.sessionId}] ElevenLabs message:`, message);
                     
                     if (message.audio) {
                         // Convert base64 audio to buffer
                         const audioBuffer = Buffer.from(message.audio, 'base64');
                         this.sendToClient({ type: 'audio', data: audioBuffer });
                     } else if (message.transcript) {
+                        console.log(`[${this.sessionId}] Transcript:`, message.transcript.text, 'Final:', message.transcript.is_final);
+                        
                         this.sendToClient({ 
                             type: 'transcript', 
                             text: message.transcript.text,
                             isFinal: message.transcript.is_final || false
                         });
 
-                        if (message.transcript.is_final) {
+                        if (message.transcript.is_final && message.transcript.text.trim().length > 0) {
                             this.handleFinalTranscript(message.transcript.text);
                         }
                     } else if (message.error) {
-                        console.error('ElevenLabs error:', message.error);
-                        this.sendToClient({ type: 'error', message: message.error });
+                        console.error(`[${this.sessionId}] ElevenLabs error:`, message.error);
+                        this.sendToClient({ type: 'error', message: `Voice error: ${message.error}` });
+                    } else if (message.message) {
+                        console.log(`[${this.sessionId}] ElevenLabs info:`, message.message);
                     }
                 } catch (error) {
-                    console.error('Error processing ElevenLabs message:', error);
+                    console.error(`[${this.sessionId}] Error processing ElevenLabs message:`, error);
                 }
             });
 
             this.elevenLabsWs.on('close', (code, reason) => {
-                console.log('ElevenLabs WebSocket closed:', code, reason.toString());
+                console.log(`[${this.sessionId}] ElevenLabs WebSocket closed:`, code, reason?.toString());
                 this.isConnected = false;
                 
                 if (this.reconnectAttempts < this.maxReconnectAttempts) {
                     this.reconnectAttempts++;
-                    console.log(`Attempting to reconnect to ElevenLabs (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+                    console.log(`[${this.sessionId}] Reconnecting to ElevenLabs (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
                     this.sendToClient({ type: 'error', message: 'Voice connection lost. Reconnecting...' });
                     setTimeout(() => this.connectToElevenLabs(), 2000 * this.reconnectAttempts);
                 } else {
-                    this.sendToClient({ type: 'error', message: 'Voice service unavailable. Please try again later.' });
+                    this.sendToClient({ type: 'error', message: 'Voice service unavailable. Please refresh and try again.' });
                 }
             });
 
             this.elevenLabsWs.on('error', (error) => {
-                console.error('ElevenLabs WebSocket error:', error);
-                this.sendToClient({ type: 'error', message: 'Voice service error' });
+                console.error(`[${this.sessionId}] ElevenLabs WebSocket error:`, error);
+                this.sendToClient({ type: 'error', message: 'Voice service connection error' });
             });
 
         } catch (error) {
-            console.error('Failed to initialize ElevenLabs connection:', error);
-            this.sendToClient({ 
-                type: 'error', 
-                message: error.response?.status === 401 
-                    ? 'Invalid ElevenLabs API key' 
-                    : 'Failed to initialize voice service' 
-            });
+            console.error(`[${this.sessionId}] Failed to initialize ElevenLabs connection:`, error.message);
+            
+            let errorMessage = 'Failed to initialize voice service';
+            if (error.response?.status === 401) {
+                errorMessage = 'Invalid ElevenLabs API key';
+            } else if (error.response?.status === 404) {
+                errorMessage = 'Voice ID not found';
+            } else if (error.code === 'ECONNABORTED') {
+                errorMessage = 'Voice service timeout';
+            }
+            
+            this.sendToClient({ type: 'error', message: errorMessage });
             
             // Retry connection after delay
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 this.reconnectAttempts++;
+                console.log(`[${this.sessionId}] Retrying ElevenLabs connection (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
                 setTimeout(() => this.connectToElevenLabs(), 3000);
             }
         }
@@ -156,11 +177,16 @@ class VirtualFriendSession {
 
     async handleFinalTranscript(transcript) {
         try {
-            console.log('Processing transcript:', transcript);
+            console.log(`[${this.sessionId}] Processing final transcript: "${transcript}"`);
+            
+            if (transcript.trim().length < 2) {
+                console.log(`[${this.sessionId}] Transcript too short, ignoring`);
+                return;
+            }
             
             // Get AI response
             const aiResponse = await this.getAIResponse(transcript);
-            console.log('AI Response:', aiResponse);
+            console.log(`[${this.sessionId}] AI Response:`, aiResponse);
             
             // Send AI response to ElevenLabs for TTS
             if (this.elevenLabsWs && this.isConnected) {
@@ -172,6 +198,7 @@ class VirtualFriendSession {
                     }
                 };
                 
+                console.log(`[${this.sessionId}] Sending TTS request to ElevenLabs`);
                 this.elevenLabsWs.send(JSON.stringify(ttsMessage));
                 
                 // Send AI text to client for display
@@ -179,16 +206,21 @@ class VirtualFriendSession {
                     type: 'ai_response', 
                     text: aiResponse 
                 });
+            } else {
+                console.error(`[${this.sessionId}] ElevenLabs WebSocket not connected for TTS`);
+                this.sendToClient({ type: 'error', message: 'Voice connection not ready for response' });
             }
         } catch (error) {
-            console.error('Error processing transcript:', error);
+            console.error(`[${this.sessionId}] Error processing transcript:`, error);
             this.sendToClient({ type: 'error', message: 'Failed to get AI response' });
         }
     }
 
     async getAIResponse(userMessage) {
         try {
-            // Using Mistral API (you can replace with any AI model API)
+            console.log(`[${this.sessionId}] Getting AI response for: "${userMessage}"`);
+            
+            // Using Mistral API
             const response = await axios.post(
                 'https://api.mistral.ai/v1/chat/completions',
                 {
@@ -196,7 +228,7 @@ class VirtualFriendSession {
                     messages: [
                         {
                             role: "system",
-                            content: `You are a warm, friendly, and supportive virtual friend. Keep your responses concise (1-2 sentences), natural, and human-like. Be empathetic, encouraging, and engaging. Respond in a conversational tone.`
+                            content: `You are a warm, friendly, and supportive virtual friend. Keep your responses concise (1-2 sentences), natural, and human-like. Be empathetic, encouraging, and engaging. Respond in a conversational tone. Always respond directly to what the user said.`
                         },
                         {
                             role: "user",
@@ -215,31 +247,46 @@ class VirtualFriendSession {
                 }
             );
 
-            return response.data.choices[0].message.content.trim();
+            const aiResponse = response.data.choices[0].message.content.trim();
+            console.log(`[${this.sessionId}] AI response received:`, aiResponse);
+            return aiResponse;
+
         } catch (error) {
-            console.error('AI API error:', error.response?.data || error.message);
-            // Fallback responses
-            const fallbackResponses = [
-                "I'm here for you! What would you like to talk about?",
-                "That's interesting! Tell me more about that.",
-                "I understand how you feel. Want to share more?",
-                "I'm listening. What's on your mind?"
-            ];
-            return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+            console.error(`[${this.sessionId}] AI API error:`, error.response?.data || error.message);
+            
+            // Fallback responses based on user input
+            const userInput = userMessage.toLowerCase();
+            let fallbackResponse;
+            
+            if (userInput.includes('hello') || userInput.includes('hi') || userInput.includes('hey')) {
+                fallbackResponse = "Hello! It's great to talk with you. How are you feeling today?";
+            } else if (userInput.includes('how are you')) {
+                fallbackResponse = "I'm doing well, thank you for asking! I'm here and ready to chat with you.";
+            } else if (userInput.includes('thank')) {
+                fallbackResponse = "You're very welcome! I'm always happy to help and listen.";
+            } else {
+                fallbackResponse = "I understand what you're saying. Tell me more about that!";
+            }
+            
+            return fallbackResponse;
         }
     }
 
     handleAudioData(audioData) {
         if (this.elevenLabsWs && this.isConnected) {
             try {
-                // Send audio data to ElevenLabs
+                // Convert Buffer to base64 for ElevenLabs
+                const audioBase64 = audioData.toString('base64');
                 const audioMessage = {
-                    audio: audioData.toString('base64')
+                    audio: audioBase64
                 };
+                
                 this.elevenLabsWs.send(JSON.stringify(audioMessage));
             } catch (error) {
-                console.error('Error sending audio to ElevenLabs:', error);
+                console.error(`[${this.sessionId}] Error sending audio to ElevenLabs:`, error);
             }
+        } else {
+            console.log(`[${this.sessionId}] ElevenLabs WebSocket not ready for audio`);
         }
     }
 
@@ -254,12 +301,13 @@ class VirtualFriendSession {
                     this.clientWs.send(JSON.stringify(message));
                 }
             } catch (error) {
-                console.error('Error sending message to client:', error);
+                console.error(`[${this.sessionId}] Error sending message to client:`, error);
             }
         }
     }
 
     close() {
+        console.log(`[${this.sessionId}] Closing session`);
         if (this.elevenLabsWs) {
             this.elevenLabsWs.close();
         }
@@ -269,24 +317,28 @@ class VirtualFriendSession {
 
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
-    console.log('Client connected from:', req.headers['x-forwarded-for'] || req.connection.remoteAddress);
+    const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    console.log('Client connected from:', clientIp);
     let session = null;
 
     ws.on('message', async (data) => {
         try {
-            if (data instanceof Buffer) {
+            if (Buffer.isBuffer(data)) {
                 // Binary audio data
                 if (session) {
                     session.handleAudioData(data);
                 }
             } else {
                 // JSON message
-                const message = JSON.parse(data);
+                const message = JSON.parse(data.toString());
+                console.log('Client message:', message);
                 
                 switch (message.type) {
                     case 'initialize':
-                        session = new VirtualFriendSession(ws);
-                        await session.initialize(message.voiceGender);
+                        if (!session) {
+                            session = new VirtualFriendSession(ws);
+                            await session.initialize(message.voiceGender);
+                        }
                         break;
                         
                     case 'audio_config':
@@ -299,12 +351,15 @@ wss.on('connection', (ws, req) => {
                             session = null;
                         }
                         break;
+                        
+                    default:
+                        console.log('Unknown message type:', message.type);
                 }
             }
         } catch (error) {
             console.error('Error processing client message:', error);
             try {
-                ws.send(JSON.stringify({ type: 'error', message: 'Internal server error' }));
+                ws.send(JSON.stringify({ type: 'error', message: 'Error processing your request' }));
             } catch (sendError) {
                 console.error('Error sending error message:', sendError);
             }
@@ -320,7 +375,7 @@ wss.on('connection', (ws, req) => {
     });
 
     ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
+        console.error('Client WebSocket error:', error);
         if (session) {
             session.close();
             session = null;
@@ -329,7 +384,10 @@ wss.on('connection', (ws, req) => {
 
     // Send welcome message
     try {
-        ws.send(JSON.stringify({ type: 'info', message: 'Connected to Virtual Friend server' }));
+        ws.send(JSON.stringify({ 
+            type: 'info', 
+            message: 'Connected to Virtual Friend server. Please select an avatar to start.' 
+        }));
     } catch (error) {
         console.error('Error sending welcome message:', error);
     }
@@ -341,7 +399,18 @@ app.get('/health', (req, res) => {
         status: 'ok', 
         timestamp: new Date().toISOString(),
         service: 'Virtual Friend API',
-        version: '1.0.0'
+        version: '1.0.0',
+        websocket: 'active'
+    });
+});
+
+// API status endpoint
+app.get('/api/status', (req, res) => {
+    res.json({
+        status: 'operational',
+        connected_clients: wss.clients.size,
+        uptime: process.uptime(),
+        memory: process.memoryUsage()
     });
 });
 
@@ -366,14 +435,21 @@ app.use((error, req, res, next) => {
 });
 
 server.listen(CONFIG.PORT, '0.0.0.0', () => {
-    console.log(`Virtual Friend server running on port ${CONFIG.PORT}`);
-    console.log(`Open https://webburns-virtual-friend.onrender.com in your browser`);
-    console.log('Server is ready to accept connections');
+    console.log(`=========================================`);
+    console.log(`Virtual Friend Server Started`);
+    console.log(`Port: ${CONFIG.PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`WebSocket Server: Active`);
+    console.log(`Ready for connections!`);
+    console.log(`=========================================`);
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM received, shutting down gracefully');
+    wss.clients.forEach(client => {
+        client.close();
+    });
     server.close(() => {
         console.log('Process terminated');
         process.exit(0);
