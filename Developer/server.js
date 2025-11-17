@@ -23,6 +23,7 @@ app.use(express.static('public'));
 const allowedOrigins = [
     process.env.CLIENT_URL,
     'https://api-nq5k.onrender.com',
+    'https://api-nq5k.onrender.com',
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:8080',
