@@ -286,14 +286,14 @@ app.post('/api/ai-assistant', async (req, res) => {
     ];
 
 const chatResponse = await mistral.chat({
-      model: 'magistral-small-2509',
+      model: 'magistral-medium-2509',
       messages,
       temperature: 0.7,
       max_tokens: 2000
     });
 
     const reply = chatResponse.choices[0]?.message?.content.trim() || 
-      "Please email contact@webburns.tech for help.";
+      "Please email contact@webburnstech.dev for help.";
 
     res.json({ reply });
 
