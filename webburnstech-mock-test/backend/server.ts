@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import redis from 'redis';
+import { createClient } from "redis";
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
