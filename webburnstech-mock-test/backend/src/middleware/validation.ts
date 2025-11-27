@@ -551,7 +551,7 @@ export const validateFileUpload = (req: Request, res: Response, next: NextFuncti
   });
 
   // Check if file exists
-  if (!req.file) {
+  if (!(req as any).file){
     return res.status(400).json({
       error: 'File is required'
     });

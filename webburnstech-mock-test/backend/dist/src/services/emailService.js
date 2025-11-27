@@ -6,7 +6,7 @@ const server_1 = require("../../server");
 const resend = new resend_1.Resend(process.env.RESEND_API_KEY);
 const sendOTPEmail = async (email, firstName, otp) => {
     try {
-        const { data, error } = await resend.emails.send({
+        const result = await resend.emails.send({
             from: process.env.FROM_EMAIL,
             to: email,
             subject: 'WebburnsTech Mock Test - Verify Your Email',
@@ -25,11 +25,8 @@ const sendOTPEmail = async (email, firstName, otp) => {
         </div>
       `
         });
-        if (error) {
-            throw error;
-        }
         server_1.logger.info(`OTP email sent to: ${email}`);
-        return data;
+        return result;
     }
     catch (error) {
         server_1.logger.error('Error sending OTP email:', error);
