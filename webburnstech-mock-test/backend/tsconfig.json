@@ -4,8 +4,12 @@
     "module": "commonjs",
     "outDir": "dist",
     "rootDir": "./",
+<<<<<<< HEAD
     "strict": false,
     "noImplicitAny": false,
+=======
+    "strict": true,
+>>>>>>> adaf123b3362805b3fc9b7b1b89744d1656e04b5
     "esModuleInterop": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
