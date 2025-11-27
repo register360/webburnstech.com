@@ -40,7 +40,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/webburnstec
   .catch((error) => logger.error('MongoDB connection error:', error));
 
 // Redis client
-const redisClient = redis.createClient({
+const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
 
