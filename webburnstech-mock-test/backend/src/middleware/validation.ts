@@ -656,10 +656,10 @@ export const customJoi = Joi.extend((joi) => ({
     'futureDate.max': '{{#label}} cannot be in the future'
   },
   rules: {
-    max: {
-      method() {
-        return this.$_addRule('max');
-      },
+  notFuture: {
+    method() {
+      return this.$_addRule('notFuture');
+    },
       validate(value, helpers) {
         if (value > new Date()) {
           return helpers.error('futureDate.max');
