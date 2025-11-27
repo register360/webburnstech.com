@@ -4,7 +4,13 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import { redisClient, logger } from '../../server';
 import { sendOTPEmail, sendVerificationPendingEmail, sendCredentialsEmail } from '../services/emailService';
-import { validateRegistration, validateOTP } from '../middleware/validation';
+import { 
+  validateRegistration, 
+  validateOTP, 
+  validateLogin,
+  validateEmail,
+  sanitizeEmail 
+} from '../middleware/validation';
 
 const router = express.Router();
 

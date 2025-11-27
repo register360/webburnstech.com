@@ -1,6 +1,7 @@
 import express from 'express';
 import { Resend } from 'resend';
 import Contact from '../models/Contact';
+import { validateContact, sanitizeText } from '../middleware/validation';
 import { logger } from '../../server';
 
 const router = express.Router();

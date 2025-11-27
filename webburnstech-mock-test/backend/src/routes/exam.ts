@@ -6,6 +6,12 @@ import Question from '../models/Question';
 import Attempt from '../models/Attempt';
 import { redisClient, logger } from '../../server';
 import { authMiddleware } from '../middleware/auth';
+import { 
+  validateStartAttempt, 
+  validateSaveAnswer, 
+  validateCheatingEvent,
+  validateExamTime 
+} from '../middleware/validation';
 
 const router = express.Router();
 
