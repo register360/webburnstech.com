@@ -13,9 +13,16 @@ const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+// Test route to check if auth routes are working
+router.get('/test', (req, res) => {
+  res.json({ message: 'Auth routes are working!' });
+});
+
 // Registration endpoint
 router.post('/register', validateRegistration, async (req, res) => {
   try {
+    console.log('Registration request received:', req.body);
+    
     const {
       firstName,
       lastName,
@@ -62,7 +69,12 @@ router.post('/register', validateRegistration, async (req, res) => {
     await user.save();
 
     // Send OTP email
-    await sendOTPEmail(email, firstName, otpCode);
+    try {
+      await sendOTPEmail(email, firstName, otpCode);
+    } catch (emailError) {
+      console.log('Email sending failed, but user registered:', emailError);
+      // Continue even if email fails for testing
+    }
 
     // Store OTP in Redis for rate limiting
     await redisClient.setEx(`otp_attempts:${user._id}`, 900, '0');
@@ -76,6 +88,7 @@ router.post('/register', validateRegistration, async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Registration error:', error);
     logger.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -118,7 +131,11 @@ router.post('/verify-otp', validateOTP, async (req, res) => {
     await user.save();
 
     // Send verification pending email
-    await sendVerificationPendingEmail(user.email, user.firstName);
+    try {
+      await sendVerificationPendingEmail(user.email, user.firstName);
+    } catch (emailError) {
+      console.log('Verification email failed:', emailError);
+    }
 
     // Clear OTP attempts
     await redisClient.del(attemptsKey);
@@ -131,6 +148,7 @@ router.post('/verify-otp', validateOTP, async (req, res) => {
     });
 
   } catch (error) {
+    console.error('OTP verification error:', error);
     logger.error('OTP verification error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -191,6 +209,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('Login error:', error);
     logger.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
