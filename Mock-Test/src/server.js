@@ -15,7 +15,7 @@ const adminRoutes = require('./routes/admin');
 const contactRoutes = require('./routes/contact');
 
 // Import rate limiters
-const { generalLimiter } = require('./middleware/rateLimit');
+const rateLimitFactory = require('./middleware/rateLimit');   // ✔ NEW
 
 // Initialize Express app
 const app = express();
@@ -125,9 +125,25 @@ const startServer = async () => {
     // Connect to MongoDB
     await connectDB();
     
-    // Connect to Redis
-    connectRedis();
-    
+  
+    // Connect to Redis FIRST
+const redisClient = connectRedis();
+
+// Create rate-limiters AFTER Redis is initialized
+const {
+  generalLimiter,
+  registrationLimiter,
+  otpLimiter,
+  loginLimiter,
+  answerSaveLimiter,
+  contactLimiter
+} = rateLimitFactory(redisClient);
+
+// Apply general limiter
+app.use('/api/', generalLimiter);
+
+// Now apply specific limiters inside routes
+
     // Initialize scheduler for credential sending
     scheduleCredentialSending();
     
