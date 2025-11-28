@@ -15,52 +15,100 @@ const customMessages = {
   'any.only': '{{#label}} must be one of: {{#valids}}'
 };
 
-// Validation patterns
+// More flexible validation patterns
 const patterns = {
-  phone: /^[\+]?[1-9][\d]{0,15}$/,
+  phone: /^[\+]?[0-9\s\-\(\)]{10,15}$/, // More flexible phone validation
   name: /^[a-zA-Z\s\-'.]+$/,
   otp: /^\d{6}$/,
   cityState: /^[a-zA-Z\s\-,.]+$/
 };
 
-// Registration validation
+// Registration validation - MORE FLEXIBLE
 const validateRegistration = (req, res, next) => {
   const schema = Joi.object({
-    firstName: Joi.string().pattern(patterns.name).min(2).max(50).required(),
-    lastName: Joi.string().pattern(patterns.name).min(2).max(50).required(),
-    fatherName: Joi.string().pattern(patterns.name).min(2).max(50).required(),
-    motherName: Joi.string().pattern(patterns.name).min(2).max(50).required(),
-    dob: Joi.date().required(),
-    gender: Joi.string().valid('male', 'female', 'other').required(),
-    email: Joi.string().email().max(100).required(),
-    phone: Joi.string().pattern(patterns.phone).min(10).max(15).required(),
-    city: Joi.string().pattern(patterns.cityState).min(2).max(50).required(),
-    state: Joi.string().pattern(patterns.cityState).min(2).max(50).required()
-  });
+    firstName: Joi.string()
+      .min(2)
+      .max(50)
+      .required()
+      .messages({
+        ...customMessages,
+        'string.pattern.base': 'First name can only contain letters, spaces, hyphens, and apostrophes'
+      }),
 
-  validateRequest(req, res, next, schema);
-};
+    lastName: Joi.string()
+      .min(2)
+      .max(50)
+      .required()
+      .messages({
+        ...customMessages,
+        'string.pattern.base': 'Last name can only contain letters, spaces, hyphens, and apostrophes'
+      }),
 
-// OTP validation
-const validateOTP = (req, res, next) => {
-  const schema = Joi.object({
-    userId: Joi.string().hex().length(24).required(),
-    otp: Joi.string().pattern(patterns.otp).required()
-  });
+    fatherName: Joi.string()
+      .min(2)
+      .max(50)
+      .required()
+      .messages({
+        ...customMessages,
+        'string.pattern.base': 'Father\'s name can only contain letters, spaces, hyphens, and apostrophes'
+      }),
 
-  validateRequest(req, res, next, schema);
-};
+    motherName: Joi.string()
+      .min(2)
+      .max(50)
+      .required()
+      .messages({
+        ...customMessages,
+        'string.pattern.base': 'Mother\'s name can only contain letters, spaces, hyphens, and apostrophes'
+      }),
 
-// Contact validation
-const validateContact = (req, res, next) => {
-  const schema = Joi.object({
-    firstName: Joi.string().pattern(patterns.name).min(2).max(50).required(),
-    lastName: Joi.string().pattern(patterns.name).min(2).max(50).required(),
-    email: Joi.string().email().max(100).required(),
-    phone: Joi.string().pattern(patterns.phone).min(10).max(15).optional().allow(''),
-    priority: Joi.string().valid('low', 'medium', 'high').required(),
-    subject: Joi.string().valid('registration', 'verification', 'exam-access', 'technical', 'payment', 'results', 'other').required(),
-    message: Joi.string().min(20).max(2000).required()
+    dob: Joi.date()
+      .max(new Date(new Date().getFullYear() - 16, new Date().getMonth(), new Date().getDate())) // Minimum 16 years old
+      .min(new Date(new Date().getFullYear() - 100, new Date().getMonth(), new Date().getDate())) // Maximum 100 years old
+      .required()
+      .messages({
+        ...customMessages,
+        'date.max': 'You must be at least 16 years old to register',
+        'date.min': 'Please enter a valid date of birth'
+      }),
+
+    gender: Joi.string()
+      .valid('male', 'female', 'other')
+      .required()
+      .messages(customMessages),
+
+    email: Joi.string()
+      .email()
+      .max(100)
+      .required()
+      .messages(customMessages),
+
+    phone: Joi.string()
+      .min(10)
+      .max(15)
+      .required()
+      .messages({
+        ...customMessages,
+        'string.pattern.base': 'Please provide a valid phone number (10-15 digits)'
+      }),
+
+    city: Joi.string()
+      .min(2)
+      .max(50)
+      .required()
+      .messages({
+        ...customMessages,
+        'string.pattern.base': 'City name can only contain letters, spaces, hyphens, and commas'
+      }),
+
+    state: Joi.string()
+      .min(2)
+      .max(50)
+      .required()
+      .messages({
+        ...customMessages,
+        'string.pattern.base': 'State name can only contain letters, spaces, hyphens, and commas'
+      })
   });
 
   validateRequest(req, res, next, schema);
@@ -69,6 +117,8 @@ const validateContact = (req, res, next) => {
 // Generic validation middleware
 const validateRequest = (req, res, next, schema, property = 'body') => {
   const data = req[property];
+  
+  console.log('Validating data:', data); // ADD DEBUG LOGGING
   
   const { error, value } = schema.validate(data, {
     abortEarly: false,
@@ -79,8 +129,11 @@ const validateRequest = (req, res, next, schema, property = 'body') => {
   if (error) {
     const errors = error.details.map(detail => ({
       field: detail.path.join('.'),
-      message: detail.message
+      message: detail.message,
+      type: detail.type
     }));
+
+    console.log('Validation errors:', errors); // ADD DEBUG LOGGING
 
     return res.status(400).json({
       error: 'Validation failed',
