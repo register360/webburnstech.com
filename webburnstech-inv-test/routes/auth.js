@@ -73,11 +73,9 @@ router.post('/register', async (req, res) => {
     });
 
     if (!emailSent) {
-      console.log('Email sending failed, but user registered successfully');
-      return res.json({
-        success: true,
-        userId: user._id,
-        message: 'Registration successful but OTP email failed. Please contact support.'
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send OTP email'
       });
     }
 
