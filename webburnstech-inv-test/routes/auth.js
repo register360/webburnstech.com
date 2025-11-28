@@ -1,7 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { redisClient, sendEmail } = require('../server.js');
+const { redisClient } = require('../server.js');
 const User = require('../models/User');
+const { sendEmail } = require('../server');
 const AuditLog = require('../models/AuditLog');
 const router = express.Router();
 
@@ -72,9 +73,11 @@ router.post('/register', async (req, res) => {
     });
 
     if (!emailSent) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to send OTP email'
+      console.log('Email sending failed, but user registered successfully');
+      return res.json({
+        success: true,
+        userId: user._id,
+        message: 'Registration successful but OTP email failed. Please contact support.'
       });
     }
 
