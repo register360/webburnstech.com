@@ -53,6 +53,7 @@ import examRoutes from './src/routes/exam';
 import adminRoutes from './src/routes/admin';
 import contactRoutes from './src/routes/contact';
 
+console.log("Loading auth routes...");
 app.use('/api/auth', authRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/admin', adminRoutes);
