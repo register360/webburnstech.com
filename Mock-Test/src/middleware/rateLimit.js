@@ -1,100 +1,83 @@
-const rateLimit = require('express-rate-limit');
-const RedisStore = require('rate-limit-redis');
-const { getRedisClient } = require('../config/redis');
+// src/middleware/rateLimit.js
 
-// Create Redis store for rate limiting
-const createRedisStore = () => {
-  return new RedisStore({
-    // @ts-expect-error - Known issue with rate-limit-redis types
-    client: getRedisClient(),
-    prefix: 'rl:',
-  });
-};
+const rateLimit = require("express-rate-limit");
+const RedisStore = require("rate-limit-redis");
 
-// Registration rate limiter - 5 requests per 15 minutes
-const registrationLimiter = rateLimit({
-  store: createRedisStore(),
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
-  message: {
-    success: false,
-    error: 'Too many registration attempts. Please try again after 15 minutes.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Factory function that accepts redisClient
+module.exports = (redisClient) => {
+  const createRedisStore = () => {
+    return new RedisStore({
+      client: redisClient,
+      prefix: "rl:",
+    });
+  };
 
-// OTP verification rate limiter - 3 requests per 15 minutes
-const otpLimiter = rateLimit({
-  store: createRedisStore(),
-  windowMs: 15 * 60 * 1000,
-  max: 3,
-  message: {
-    success: false,
-    error: 'Too many OTP attempts. Please try again after 15 minutes.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+  return {
+    // Registration
+    registrationLimiter: rateLimit({
+      store: createRedisStore(),
+      windowMs: 15 * 60 * 1000,
+      max: 5,
+      message: {
+        success: false,
+        error: "Too many registration attempts. Try again after 15 minutes.",
+      },
+    }),
 
-// Login rate limiter - 5 requests per 15 minutes
-const loginLimiter = rateLimit({
-  store: createRedisStore(),
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: {
-    success: false,
-    error: 'Too many login attempts. Please try again after 15 minutes.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+    // OTP
+    otpLimiter: rateLimit({
+      store: createRedisStore(),
+      windowMs: 15 * 60 * 1000,
+      max: 3,
+      message: {
+        success: false,
+        error: "Too many OTP attempts. Try again after 15 minutes.",
+      },
+    }),
 
-// Answer save rate limiter - 100 requests per 2 hours
-const answerSaveLimiter = rateLimit({
-  store: createRedisStore(),
-  windowMs: 2 * 60 * 60 * 1000, // 2 hours
-  max: 100,
-  message: {
-    success: false,
-    error: 'Too many save requests. Please slow down.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful requests
-});
+    // Login
+    loginLimiter: rateLimit({
+      store: createRedisStore(),
+      windowMs: 15 * 60 * 1000,
+      max: 5,
+      message: {
+        success: false,
+        error: "Too many login attempts. Try again after 15 minutes.",
+      },
+    }),
 
-// General API rate limiter - 100 requests per 15 minutes
-const generalLimiter = rateLimit({
-  store: createRedisStore(),
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: {
-    success: false,
-    error: 'Too many requests. Please try again later.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+    // Save Answer
+    answerSaveLimiter: rateLimit({
+      store: createRedisStore(),
+      windowMs: 2 * 60 * 60 * 1000,
+      max: 100,
+      skipSuccessfulRequests: true,
+      message: {
+        success: false,
+        error: "Too many save requests. Please slow down.",
+      },
+    }),
 
-// Contact form rate limiter - 3 requests per hour
-const contactLimiter = rateLimit({
-  store: createRedisStore(),
-  windowMs: 60 * 60 * 1000,
-  max: 3,
-  message: {
-    success: false,
-    error: 'Too many contact form submissions. Please try again after 1 hour.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+    // General API limit
+    generalLimiter: rateLimit({
+      store: createRedisStore(),
+      windowMs: 15 * 60 * 1000,
+      max: 100,
+      message: {
+        success: false,
+        error: "Too many requests. Please try again later.",
+      },
+    }),
 
-module.exports = {
-  registrationLimiter,
-  otpLimiter,
-  loginLimiter,
-  answerSaveLimiter,
-  generalLimiter,
-  contactLimiter,
+    // Contact
+    contactLimiter: rateLimit({
+      store: createRedisStore(),
+      windowMs: 60 * 60 * 1000,
+      max: 3,
+      message: {
+        success: false,
+        error: "Too many contact form submissions. Try again after 1 hour.",
+      },
+    }),
+  };
 };
