@@ -1,40 +1,17 @@
 const rateLimit = require('express-rate-limit');
-const RedisStore = require("@rate-limiter/redis");
 
-// Factories to create rate limiters - will be initialized after Redis connects
+// Redis client (optional)
 let redisClient = null;
 
-// Initialize Redis client reference after connection
+// Called after Redis connects — optional (not needed for memory store)
 const initializeRateLimiters = (client) => {
   redisClient = client;
-  
-  const store = createRedisStore();
-  
-  generalLimiter.store = store;
-  otpLimiter.store = store;
-  loginLimiter.store = store;
-  registrationLimiter.store = store;
-  answerSaveLimiter.store = store;
-  contactLimiter.store = store;
-};
-
-// Create Redis store for rate limiting
-const createRedisStore = () => {
-  if (!redisClient) {
-    console.warn('⚠️  Redis not available for rate limiting, using memory store');
-    return undefined; // express-rate-limit will use memory store
-  }
-  
-  return new RedisStore({
-    // @ts-expect-error - Known issue with rate-limit-redis types
-    sendCommand: (...args) => redisClient.sendCommand(args),
-    prefix: 'rl:',
-  });
+  console.log("Rate limiters initialized (memory store used - Redis optional)");
 };
 
 // Registration rate limiter - 5 requests per 15 minutes
 const registrationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 5,
   message: {
     success: false,
@@ -42,10 +19,9 @@ const registrationLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  store: undefined, // Will be set dynamically
 });
 
-// OTP verification rate limiter - 3 requests per 15 minutes
+// OTP verification rate limiter
 const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
@@ -55,25 +31,23 @@ const otpLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  store: undefined,
 });
 
-// Login rate limiter - 5 requests per 15 minutes
+// Login rate limiter
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: {
     success: false,
-    error: 'Too many login attempts. Please try again after 15 minutes.',
+    error: 'Too many login attempts. Please try again later.',
   },
   standardHeaders: true,
   legacyHeaders: false,
-  store: undefined,
 });
 
-// Answer save rate limiter - 100 requests per 2 hours
+// Answer save limiter
 const answerSaveLimiter = rateLimit({
-  windowMs: 2 * 60 * 60 * 1000, // 2 hours
+  windowMs: 2 * 60 * 60 * 1000,
   max: 100,
   message: {
     success: false,
@@ -82,10 +56,9 @@ const answerSaveLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  store: undefined,
 });
 
-// General API rate limiter - 100 requests per 15 minutes
+// General API rate limiter
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -95,20 +68,18 @@ const generalLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  store: undefined,
 });
 
-// Contact form rate limiter - 3 requests per hour
+// Contact form rate limiter
 const contactLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
   message: {
     success: false,
-    error: 'Too many contact form submissions. Please try again after 1 hour.',
+    error: 'Too many contact submissions. Try again after 1 hour.',
   },
   standardHeaders: true,
   legacyHeaders: false,
-  store: undefined,
 });
 
 module.exports = {
