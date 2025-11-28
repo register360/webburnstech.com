@@ -1,6 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { redisClient, sendEmail } = require('../server');
+const { redisClient, sendEmail } = require('../server.js');
 const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const router = express.Router();
