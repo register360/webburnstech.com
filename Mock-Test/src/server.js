@@ -15,7 +15,7 @@ const adminRoutes = require('./routes/admin');
 const contactRoutes = require('./routes/contact');
 
 // Import rate limiters
-const rateLimitFactory = require('./middleware/rateLimit');   // ✔ NEW
+const { generalLimiter } = require('./middleware/rateLimit'); // ✔ NEW
 
 // Initialize Express app
 const app = express();
@@ -57,7 +57,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // General rate limiter for all routes
-app.use('/api/', rateLimitFactory);
+app.use('/api/',  generalLimiter);
 
 // ==================== Routes ====================
 
