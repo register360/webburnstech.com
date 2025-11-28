@@ -68,15 +68,18 @@ const authLimiter = rateLimit({
   max: 5,
   message: 'Too many authentication attempts, please try again later.'
 });
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/verify-otp', authLimiter);
 
-// Routes
+// Import routes
 const authRoutes = require('./src/routes/auth');
 const examRoutes = require('./src/routes/exam');
 const adminRoutes = require('./src/routes/admin');
 const contactRoutes = require('./src/routes/contact');
 
+// Apply auth rate limiting to specific routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/verify-otp', authLimiter);
+
+// Register routes (THIS IS THE IMPORTANT PART)
 app.use('/api/auth', authRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/admin', adminRoutes);
@@ -93,7 +96,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// 404 handler
+// 404 handler - THIS SHOULD BE LAST
 app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
@@ -103,6 +106,13 @@ require('./src/services/scheduler').startScheduler();
 
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
+  logger.info(`Available routes:`);
+  logger.info(`- POST /api/auth/register`);
+  logger.info(`- POST /api/auth/verify-otp`);
+  logger.info(`- POST /api/auth/login`);
+  logger.info(`- POST /api/contact`);
+  logger.info(`- GET /api/admin/applications`);
+  logger.info(`- GET /health`);
 });
 
 module.exports = { app, redisClient, logger };
