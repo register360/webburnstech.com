@@ -2,7 +2,7 @@ import express from 'express';
 import User from '../models/User';
 import Attempt from '../models/Attempt';
 import Question from '../models/Question';
-import { logger } from '../../server';
+import { redisClient, logger } from '../lib/appGlobals';
 import { adminAuthMiddleware } from '../middleware/auth';
 import { sendCredentialsEmail } from '../services/emailService';
 

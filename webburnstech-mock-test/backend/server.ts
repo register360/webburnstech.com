@@ -5,7 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
-import { createLogger, format, transports } from 'winston';
+import { logger, redisClient } from './src/lib/appGlobals';
 
 // Load environment variables
 dotenv.config();
@@ -14,38 +14,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Logger configuration
-const logger = createLogger({
-  level: 'info',
-  format: format.combine(
-    format.timestamp(),
-    format.errors({ stack: true }),
-    format.json()
-  ),
-  transports: [
-    new transports.File({ filename: 'error.log', level: 'error' }),
-    new transports.File({ filename: 'combined.log' }),
-    new transports.Console({
-      format: format.combine(
-        format.colorize(),
-        format.simple()
-      )
-    })
-  ]
-});
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/webburnstech')
   .then(() => logger.info('MongoDB connected successfully'))
   .catch((error) => logger.error('MongoDB connection error:', error));
-
-// Redis client
-const redisClient = redis.createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
-
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
-redisClient.connect();
 
 // Middleware
 app.use(helmet());

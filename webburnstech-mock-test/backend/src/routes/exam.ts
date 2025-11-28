@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import User from '../models/User';
 import Question from '../models/Question';
 import Attempt from '../models/Attempt';
-import { redisClient, logger } from '../../server';
+import { redisClient, logger } from '../lib/appGlobals';
 import { authMiddleware } from '../middleware/auth';
 import { 
   validateStartAttempt, 

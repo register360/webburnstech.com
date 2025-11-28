@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
-import { redisClient, logger } from '../../server';
+import { redisClient, logger } from '../lib/appGlobals';
 import { sendOTPEmail, sendVerificationPendingEmail, sendCredentialsEmail } from '../services/emailService';
 import { 
   validateRegistration, 
