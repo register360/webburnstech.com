@@ -57,7 +57,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // General rate limiter for all routes
-app.use('/api/', generalLimiter);
+app.use('/api/', rateLimitFactory);
 
 // ==================== Routes ====================
 
