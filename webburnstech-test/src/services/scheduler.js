@@ -1,7 +1,13 @@
 const cron = require('node-cron');
 const User = require('../models/User');
 const { sendCredentialsEmail } = require('./emailService');
-const { logger } = require('../../server');
+// const { logger } = require('../../server');
+
+// Create a simple logger for scheduler
+const logger = {
+  info: (message) => console.log(`[SCHEDULER INFO] ${new Date().toISOString()}: ${message}`),
+  error: (message) => console.error(`[SCHEDULER ERROR] ${new Date().toISOString()}: ${message}`)
+};
 
 const startScheduler = () => {
   // Schedule credential sending for 14:00 IST on 30-11-2025 (08:30 UTC)
