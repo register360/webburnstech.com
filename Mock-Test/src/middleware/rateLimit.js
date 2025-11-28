@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const RedisStore = require('rate-limit-redis');
+const RedisStore = require("@rate-limiter/redis");
 
 // Factories to create rate limiters - will be initialized after Redis connects
 let redisClient = null;
@@ -7,6 +7,15 @@ let redisClient = null;
 // Initialize Redis client reference after connection
 const initializeRateLimiters = (client) => {
   redisClient = client;
+  
+  const store = createRedisStore();
+  
+  generalLimiter.store = store;
+  otpLimiter.store = store;
+  loginLimiter.store = store;
+  registrationLimiter.store = store;
+  answerSaveLimiter.store = store;
+  contactLimiter.store = store;
 };
 
 // Create Redis store for rate limiting
@@ -18,7 +27,7 @@ const createRedisStore = () => {
   
   return new RedisStore({
     // @ts-expect-error - Known issue with rate-limit-redis types
-    client: redisClient,
+    sendCommand: (...args) => redisClient.sendCommand(args),
     prefix: 'rl:',
   });
 };
