@@ -4,11 +4,15 @@ const redis = require('redis');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { Resend } = require('resend');
 const mongoSanitize = require('express-mongo-sanitize');
 const cron = require('node-cron');
 require('dotenv').config();
 
 const app = express();
+
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Security middleware
 app.use(helmet());
