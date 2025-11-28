@@ -128,17 +128,7 @@ const startServer = async () => {
   
     // Connect to Redis FIRST
 const redisClient = connectRedis();
-
-// Create rate-limiters AFTER Redis is initialized
-const {
-  generalLimiter,
-  registrationLimiter,
-  otpLimiter,
-  loginLimiter,
-  answerSaveLimiter,
-  contactLimiter
-} = rateLimitFactory(redisClient);
-
+    
 // Apply general limiter
 app.use('/api/', generalLimiter);
 
