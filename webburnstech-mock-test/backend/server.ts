@@ -38,26 +38,26 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Auth rate limiting
+// Rate limiters (Fixed paths)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message: 'Too many authentication attempts, please try again later.'
 });
-app.use('/api/login', authLimiter);
-app.use('/api/verify-otp', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/verify-otp', authLimiter);
 
-// Routes
+// Routes (Correct)
 import authRoutes from './src/routes/auth';
 import examRoutes from './src/routes/exam';
 import adminRoutes from './src/routes/admin';
 import contactRoutes from './src/routes/contact';
 
-console.log("Loading auth routes...");
 app.use('/api/auth', authRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/contact', contactRoutes);
+
 
 // Health check
 app.get('/health', (req, res) => {
