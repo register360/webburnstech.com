@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { redisClient } from '../../server';
+import { redisClient } from '../lib/appGlobals';
 
 export const authMiddleware = async (req: any, res: Response, next: NextFunction) => {
   try {

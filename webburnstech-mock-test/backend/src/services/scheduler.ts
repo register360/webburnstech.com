@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import User from '../models/User';
 import { sendCredentialsEmail } from './emailService';
-import { logger } from '../../server';
+import { logger } from '../lib/appGlobals';
 
 export const startScheduler = () => {
   // Schedule credential sending for 14:00 IST on 30-11-2025 (08:30 UTC)

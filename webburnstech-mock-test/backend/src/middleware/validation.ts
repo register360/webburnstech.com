@@ -1,6 +1,6 @@
 import Joi from 'joi';
 import { Request, Response, NextFunction } from 'express';
-import { logger } from '../../server';
+import { logger } from '../lib/appGlobals';
 
 // Custom validation messages
 const customMessages = {
