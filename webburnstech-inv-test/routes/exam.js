@@ -6,7 +6,68 @@ const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const router = express.Router();
 
-// Authentication middleware
+// Redis client with fallback
+let redisClient;
+try {
+    redisClient = require('../server.js').redisClient;
+} catch (error) {
+    console.warn('Redis client not available, using in-memory fallback');
+    // In-memory fallback storage
+    const memoryStore = new Map();
+    redisClient = {
+        async setEx(key, seconds, value) {
+            memoryStore.set(key, value);
+            setTimeout(() => memoryStore.delete(key), seconds * 1000);
+            return 'OK';
+        },
+        async get(key) {
+            return memoryStore.get(key) || null;
+        },
+        async del(key) {
+            return memoryStore.delete(key);
+        },
+        async exists(key) {
+            return memoryStore.has(key) ? 1 : 0;
+        },
+        isOpen: true
+    };
+}
+
+// Helper function to safely use Redis
+const safeRedisSetEx = async (key, seconds, value) => {
+  try {
+    if (redisClient && redisClient.setEx) {
+      return await redisClient.setEx(key, seconds, value);
+    }
+    // Fallback to in-memory storage
+    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
+    memoryStore.set(key, value);
+    setTimeout(() => memoryStore.delete(key), seconds * 1000);
+    return 'OK';
+  } catch (error) {
+    console.warn('Redis setEx failed, using fallback:', error.message);
+    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
+    memoryStore.set(key, value);
+    setTimeout(() => memoryStore.delete(key), seconds * 1000);
+    return 'OK';
+  }
+};
+
+const safeRedisGet = async (key) => {
+  try {
+    if (redisClient && redisClient.get) {
+      return await redisClient.get(key);
+    }
+    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
+    return memoryStore.get(key) || null;
+  } catch (error) {
+    console.warn('Redis get failed, using fallback:', error.message);
+    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
+    return memoryStore.get(key) || null;
+  }
+};
+
+// Regular authentication middleware
 const authenticate = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -20,20 +81,36 @@ const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Check Redis for valid session
-    const sessionKey = `session:${decoded.userId}`;
-    const redisToken = await safeRedisGet(sessionKey);
-    
-    if (!redisToken || redisToken !== token) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid or expired session'
-      });
+    // Check if this is a demo session
+    if (decoded.isDemo) {
+      // For demo sessions, check demo session storage
+      const sessionKey = `demo-session:${decoded.userId}`;
+      const redisToken = await safeRedisGet(sessionKey);
+      
+      if (!redisToken || redisToken !== token) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid or expired demo session'
+        });
+      }
+    } else {
+      // For regular sessions, check regular session storage
+      const sessionKey = `session:${decoded.userId}`;
+      const redisToken = await safeRedisGet(sessionKey);
+      
+      if (!redisToken || redisToken !== token) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid or expired session'
+        });
+      }
     }
 
     req.user = decoded;
+    req.isDemo = decoded.isDemo || false;
     next();
   } catch (error) {
+    console.error('Authentication error:', error);
     res.status(401).json({
       success: false,
       error: 'Invalid token'
@@ -41,13 +118,17 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+// Demo authentication middleware (simplified - uses same as regular but allows demo)
+const authenticateDemo = authenticate; // Use the same middleware
+
 // Get questions for exam
 router.get('/questions', authenticate, async (req, res) => {
   try {
     // Check if user has an active attempt
     const activeAttempt = await Attempt.findOne({
       userId: req.user.userId,
-      submittedAt: null
+      submittedAt: null,
+      isDemo: req.isDemo || false
     });
 
     if (activeAttempt) {
@@ -119,39 +200,45 @@ router.get('/questions', authenticate, async (req, res) => {
 // Start exam attempt
 router.post('/attempts/start', authenticate, async (req, res) => {
   try {
-    // Check exam timing
-    const now = new Date();
-    const examStart = new Date('2025-11-30T10:30:00Z'); // 16:00 IST
-    const examEnd = new Date('2025-11-30T12:30:00Z'); // 18:00 IST
-    
-    if (now < examStart || now > examEnd) {
-      return res.status(403).json({
-        success: false,
-        error: 'Exam can only be started during exam hours (16:00-18:00 IST)'
-      });
+    // Check exam timing (only for real exam, not demo)
+    if (!req.isDemo) {
+      const now = new Date();
+      const examStart = new Date('2025-11-30T10:30:00Z'); // 16:00 IST
+      const examEnd = new Date('2025-11-30T12:30:00Z'); // 18:00 IST
+      
+      if (now < examStart || now > examEnd) {
+        return res.status(403).json({
+          success: false,
+          error: 'Exam can only be started during exam hours (16:00-18:00 IST)'
+        });
+      }
     }
 
     // Check for existing active attempt
     const existingAttempt = await Attempt.findOne({
       userId: req.user.userId,
-      submittedAt: null
+      submittedAt: null,
+      isDemo: req.isDemo || false
     });
 
     if (existingAttempt) {
       return res.json({
         success: true,
-        attempt: existingAttempt
+        attempt: existingAttempt,
+        isDemo: req.isDemo || false
       });
     }
 
     // Create new attempt
     const startAt = new Date();
-    const endAt = new Date(startAt.getTime() + 2 * 60 * 60 * 1000); // 2 hours
+    const duration = req.isDemo ? 30 * 60 * 1000 : 2 * 60 * 60 * 1000; // 30 min for demo, 2 hours for real
+    const endAt = new Date(startAt.getTime() + duration);
 
     const attempt = new Attempt({
       userId: req.user.userId,
       startAt,
-      endAt
+      endAt,
+      isDemo: req.isDemo || false
     });
 
     await attempt.save();
@@ -160,13 +247,14 @@ router.post('/attempts/start', authenticate, async (req, res) => {
     await AuditLog.create({
       userId: req.user.userId,
       ip: req.ip,
-      event: 'EXAM_STARTED',
-      details: { attemptId: attempt._id }
+      event: req.isDemo ? 'DEMO_EXAM_STARTED' : 'EXAM_STARTED',
+      details: { attemptId: attempt._id, isDemo: req.isDemo || false }
     });
 
     res.json({
       success: true,
-      attempt
+      attempt,
+      isDemo: req.isDemo || false
     });
 
   } catch (error) {
@@ -174,6 +262,123 @@ router.post('/attempts/start', authenticate, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to start exam attempt'
+    });
+  }
+});
+
+// Get demo questions (shorter, for practice)
+router.get('/demo-questions', authenticateDemo, async (req, res) => {
+  try {
+    // Get 15 random questions for demo (shorter test)
+    const questions = await Question.aggregate([
+      {
+        $group: {
+          _id: '$difficulty',
+          questions: { $push: '$$ROOT' }
+        }
+      },
+      {
+        $project: {
+          questions: {
+            $slice: [
+              '$questions',
+              {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ['$_id', 'low'] }, then: 6 },
+                    { case: { $eq: ['$_id', 'medium'] }, then: 6 },
+                    { case: { $eq: ['$_id', 'high'] }, then: 3 }
+                  ],
+                  default: 0
+                }
+              }
+            ]
+          }
+        }
+      },
+      { $unwind: '$questions' },
+      { $replaceRoot: { newRoot: '$questions' } },
+      { $sample: { size: 15 } },
+      {
+        $project: {
+          correctOptionIndex: 0,
+          explanation: 0
+        }
+      }
+    ]);
+
+    // If not enough questions, create some demo ones
+    const demoQuestions = getDemoQuestions();
+    if (questions.length < 15) {
+      questions.push(...demoQuestions.slice(0, 15 - questions.length));
+    }
+
+    res.json({
+      success: true,
+      questions: questions.length >= 15 ? questions : demoQuestions.slice(0, 15),
+      isDemo: true,
+      duration: 30 // 30 minutes for demo
+    });
+
+  } catch (error) {
+    console.error('Get demo questions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to load demo questions'
+    });
+  }
+});
+
+// Start demo exam attempt
+router.post('/demo-attempts/start', authenticateDemo, async (req, res) => {
+  try {
+    // Check for existing active demo attempt
+    const existingAttempt = await Attempt.findOne({
+      userId: req.user.userId,
+      submittedAt: null,
+      isDemo: true
+    });
+
+    if (existingAttempt) {
+      return res.json({
+        success: true,
+        attempt: existingAttempt,
+        isDemo: true
+      });
+    }
+
+    // Create new demo attempt (shorter duration)
+    const startAt = new Date();
+    const endAt = new Date(startAt.getTime() + 30 * 60 * 1000); // 30 minutes for demo
+
+    const attempt = new Attempt({
+      userId: req.user.userId,
+      startAt,
+      endAt,
+      isDemo: true // Mark as demo attempt
+    });
+
+    await attempt.save();
+
+    // Log demo attempt start
+    await AuditLog.create({
+      userId: req.user.userId,
+      ip: req.ip,
+      event: 'DEMO_EXAM_STARTED',
+      details: { attemptId: attempt._id, isDemo: true }
+    });
+
+    res.json({
+      success: true,
+      attempt,
+      isDemo: true
+    });
+
+  } catch (error) {
+    console.error('Start demo attempt error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to start demo exam'
     });
   }
 });
@@ -244,365 +449,6 @@ router.post('/attempts/:attemptId/save', authenticate, async (req, res) => {
   }
 });
 
-// Log cheating event
-router.post('/attempts/:attemptId/cheating-event', authenticate, async (req, res) => {
-  try {
-    const { type, details } = req.body;
-    const attemptId = req.params.attemptId;
-
-    const attempt = await Attempt.findOne({
-      _id: attemptId,
-      userId: req.user.userId
-    });
-
-    if (!attempt) {
-      return res.status(404).json({
-        success: false,
-        error: 'Attempt not found'
-      });
-    }
-
-    // Get current warning count
-    const warningCount = attempt.cheatingEvents.filter(
-      event => event.type === type
-    ).length + 1;
-
-    // Add cheating event
-    attempt.cheatingEvents.push({
-      type,
-      details,
-      warningCount
-    });
-
-    // Auto-submit on 3rd warning
-    if (warningCount >= 3) {
-      await autoSubmitExam(attempt, true);
-      return res.json({
-        success: true,
-        autoSubmitted: true,
-        message: 'Exam auto-submitted due to multiple cheating events'
-      });
-    }
-
-    await attempt.save();
-
-    // Log cheating event
-    await AuditLog.create({
-      userId: req.user.userId,
-      ip: req.ip,
-      event: 'CHEATING_EVENT',
-      details: { type, details, attemptId, warningCount }
-    });
-
-    res.json({
-      success: true,
-      warningCount,
-      message: `Warning ${warningCount}/3: ${getWarningMessage(type)}`
-    });
-
-  } catch (error) {
-    console.error('Cheating event error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to log cheating event'
-    });
-  }
-});
-
-// Submit exam
-router.post('/attempts/:attemptId/submit', authenticate, async (req, res) => {
-  try {
-    const attemptId = req.params.attemptId;
-
-    const attempt = await Attempt.findOne({
-      _id: attemptId,
-      userId: req.user.userId
-    });
-
-    if (!attempt) {
-      return res.status(404).json({
-        success: false,
-        error: 'Attempt not found'
-      });
-    }
-
-    if (attempt.submittedAt) {
-      return res.status(400).json({
-        success: false,
-        error: 'Exam already submitted'
-      });
-    }
-
-    attempt.submittedAt = new Date();
-    attempt.durationSec = Math.floor((attempt.submittedAt - attempt.startAt) / 1000);
-    
-    // Calculate score
-    await attempt.calculateScore();
-    await attempt.save();
-
-    // Log submission
-    await AuditLog.create({
-      userId: req.user.userId,
-      ip: req.ip,
-      event: 'EXAM_SUBMITTED',
-      details: { attemptId, score: attempt.score, autoSubmitted: attempt.autoSubmitted }
-    });
-
-    res.json({
-      success: true,
-      score: attempt.score,
-      totalQuestions: attempt.answers.length,
-      duration: attempt.durationSec
-    });
-
-  } catch (error) {
-    console.error('Submit exam error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to submit exam'
-    });
-  }
-});
-
-// Get attempt details
-router.get('/attempts/:attemptId', authenticate, async (req, res) => {
-  try {
-    const attempt = await Attempt.findOne({
-      _id: req.params.attemptId,
-      userId: req.user.userId
-    });
-
-    if (!attempt) {
-      return res.status(404).json({
-        success: false,
-        error: 'Attempt not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      attempt
-    });
-
-  } catch (error) {
-    console.error('Get attempt error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get attempt details'
-    });
-  }
-});
-// Demo authentication middleware
-const authenticateDemo = async (req, res, next) => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        error: 'Access denied. No token provided.'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Redis client with fallback
-let redisClient;
-try {
-    redisClient = require('../server.js').redisClient;
-} catch (error) {
-    console.warn('Redis client not available, using in-memory fallback');
-    // In-memory fallback storage
-    const memoryStore = new Map();
-    redisClient = {
-        async setEx(key, seconds, value) {
-            memoryStore.set(key, value);
-            setTimeout(() => memoryStore.delete(key), seconds * 1000);
-            return 'OK';
-        },
-        async get(key) {
-            return memoryStore.get(key) || null;
-        },
-        async del(key) {
-            return memoryStore.delete(key);
-        },
-        async exists(key) {
-            return memoryStore.has(key) ? 1 : 0;
-        },
-        isOpen: true
-    };
-}
-
-// Helper function to safely use Redis
-const safeRedisSetEx = async (key, seconds, value) => {
-  try {
-    if (redisClient && redisClient.setEx) {
-      return await redisClient.setEx(key, seconds, value);
-    }
-    // Fallback to in-memory storage
-    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
-    memoryStore.set(key, value);
-    setTimeout(() => memoryStore.delete(key), seconds * 1000);
-    return 'OK';
-  } catch (error) {
-    console.warn('Redis setEx failed, using fallback:', error.message);
-    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
-    memoryStore.set(key, value);
-    setTimeout(() => memoryStore.delete(key), seconds * 1000);
-    return 'OK';
-  }
-};
-
-const safeRedisGet = async (key) => {
-  try {
-    if (redisClient && redisClient.get) {
-      return await redisClient.get(key);
-    }
-    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
-    return memoryStore.get(key) || null;
-  } catch (error) {
-    console.warn('Redis get failed, using fallback:', error.message);
-    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
-    return memoryStore.get(key) || null;
-  }
-};
-    // Check Redis for valid demo session
-    const sessionKey = `demo-session:${decoded.userId}`;
-    const redisToken = await safeRedisGet(sessionKey);
-    
-    if (!redisToken || redisToken !== token) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid or expired demo session'
-      });
-    }
-
-    req.user = decoded;
-    req.isDemo = true;
-    next();
-  } catch (error) {
-    res.status(401).json({
-      success: false,
-      error: 'Invalid demo token'
-    });
-  }
-};
-
-// Get demo questions (shorter, for practice)
-router.get('/demo-questions', authenticateDemo, async (req, res) => {
-  try {
-    // Get 15 random questions for demo (shorter test)
-    const questions = await Question.aggregate([
-      {
-        $group: {
-          _id: '$difficulty',
-          questions: { $push: '$$ROOT' }
-        }
-      },
-      {
-        $project: {
-          questions: {
-            $slice: [
-              '$questions',
-              {
-                $switch: {
-                  branches: [
-                    { case: { $eq: ['$_id', 'low'] }, then: 6 },
-                    { case: { $eq: ['$_id', 'medium'] }, then: 6 },
-                    { case: { $eq: ['$_id', 'high'] }, then: 3 }
-                  ],
-                  default: 0
-                }
-              }
-            ]
-          }
-        }
-      },
-      { $unwind: '$questions' },
-      { $replaceRoot: { newRoot: '$questions' } },
-      { $sample: { size: 15 } },
-      {
-        $project: {
-          correctOptionIndex: 0,
-          explanation: 0
-        }
-      }
-    ]);
-
-    // If not enough questions, create some demo ones
-    if (questions.length < 15) {
-      questions.push(...getDemoQuestions().slice(0, 15 - questions.length));
-    }
-
-    res.json({
-      success: true,
-      questions,
-      isDemo: true,
-      duration: 30 // 30 minutes for demo
-    });
-
-  } catch (error) {
-    console.error('Get demo questions error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to load demo questions'
-    });
-  }
-});
-
-// Start demo exam attempt
-router.post('/demo-attempts/start', authenticateDemo, async (req, res) => {
-  try {
-    // Check for existing active demo attempt
-    const existingAttempt = await Attempt.findOne({
-      userId: req.user.userId,
-      submittedAt: null,
-      isDemo: true
-    });
-
-    if (existingAttempt) {
-      return res.json({
-        success: true,
-        attempt: existingAttempt,
-        isDemo: true
-      });
-    }
-
-    // Create new demo attempt (shorter duration)
-    const startAt = new Date();
-    const endAt = new Date(startAt.getTime() + 30 * 60 * 1000); // 30 minutes for demo
-
-    const attempt = new Attempt({
-      userId: req.user.userId,
-      startAt,
-      endAt,
-      isDemo: true // Mark as demo attempt
-    });
-
-    await attempt.save();
-
-    // Log demo attempt start
-    await AuditLog.create({
-      userId: req.user.userId,
-      ip: req.ip,
-      event: 'DEMO_EXAM_STARTED',
-      details: { attemptId: attempt._id, isDemo: true }
-    });
-
-    res.json({
-      success: true,
-      attempt,
-      isDemo: true
-    });
-
-  } catch (error) {
-    console.error('Start demo attempt error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to start demo exam'
-    });
-  }
-});
-
 // Save demo answer
 router.post('/demo-attempts/:attemptId/save', authenticateDemo, async (req, res) => {
   try {
@@ -658,6 +504,61 @@ router.post('/demo-attempts/:attemptId/save', authenticateDemo, async (req, res)
     res.status(500).json({
       success: false,
       error: 'Failed to save demo answer'
+    });
+  }
+});
+
+// Submit exam
+router.post('/attempts/:attemptId/submit', authenticate, async (req, res) => {
+  try {
+    const attemptId = req.params.attemptId;
+
+    const attempt = await Attempt.findOne({
+      _id: attemptId,
+      userId: req.user.userId
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        error: 'Attempt not found'
+      });
+    }
+
+    if (attempt.submittedAt) {
+      return res.status(400).json({
+        success: false,
+        error: 'Exam already submitted'
+      });
+    }
+
+    attempt.submittedAt = new Date();
+    attempt.durationSec = Math.floor((attempt.submittedAt - attempt.startAt) / 1000);
+    
+    // Calculate score
+    await attempt.calculateScore();
+    await attempt.save();
+
+    // Log submission
+    await AuditLog.create({
+      userId: req.user.userId,
+      ip: req.ip,
+      event: 'EXAM_SUBMITTED',
+      details: { attemptId, score: attempt.score, autoSubmitted: attempt.autoSubmitted }
+    });
+
+    res.json({
+      success: true,
+      score: attempt.score,
+      totalQuestions: attempt.answers.length,
+      duration: attempt.durationSec
+    });
+
+  } catch (error) {
+    console.error('Submit exam error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to submit exam'
     });
   }
 });
@@ -724,7 +625,67 @@ router.post('/demo-attempts/:attemptId/submit', authenticateDemo, async (req, re
   }
 });
 
-// Helper function for demo questions
+// Get attempt details
+router.get('/attempts/:attemptId', authenticate, async (req, res) => {
+  try {
+    const attempt = await Attempt.findOne({
+      _id: req.params.attemptId,
+      userId: req.user.userId
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        error: 'Attempt not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      attempt
+    });
+
+  } catch (error) {
+    console.error('Get attempt error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get attempt details'
+    });
+  }
+});
+
+// Helper functions
+async function autoSubmitExam(attempt, isCheating = false) {
+  try {
+    attempt.submittedAt = new Date();
+    attempt.autoSubmitted = true;
+    attempt.durationSec = Math.floor((attempt.submittedAt - attempt.startAt) / 1000);
+    
+    if (isCheating) {
+      attempt.cheatingEvents.push({
+        type: 'autoSubmit',
+        details: 'Auto-submitted due to cheating violations'
+      });
+    }
+    
+    await attempt.calculateScore();
+    await attempt.save();
+
+    // Log auto-submission
+    await AuditLog.create({
+      userId: attempt.userId,
+      event: 'EXAM_AUTO_SUBMITTED',
+      details: { 
+        attemptId: attempt._id, 
+        reason: isCheating ? 'cheating' : 'timeup',
+        score: attempt.score 
+      }
+    });
+  } catch (error) {
+    console.error('Auto-submit error:', error);
+  }
+}
+
 function getDemoQuestions() {
   return [
     {
@@ -863,50 +824,6 @@ function getDemoQuestions() {
       correctOptionIndex: 0
     }
   ];
-}
-// Helper functions
-async function autoSubmitExam(attempt, isCheating = false) {
-  try {
-    attempt.submittedAt = new Date();
-    attempt.autoSubmitted = true;
-    attempt.durationSec = Math.floor((attempt.submittedAt - attempt.startAt) / 1000);
-    
-    if (isCheating) {
-      attempt.cheatingEvents.push({
-        type: 'autoSubmit',
-        details: 'Auto-submitted due to cheating violations'
-      });
-    }
-    
-    await attempt.calculateScore();
-    await attempt.save();
-
-    // Log auto-submission
-    await AuditLog.create({
-      userId: attempt.userId,
-      event: 'EXAM_AUTO_SUBMITTED',
-      details: { 
-        attemptId: attempt._id, 
-        reason: isCheating ? 'cheating' : 'timeup',
-        score: attempt.score 
-      }
-    });
-  } catch (error) {
-    console.error('Auto-submit error:', error);
-  }
-}
-
-function getWarningMessage(type) {
-  const messages = {
-    tabChange: 'Do not switch tabs or windows. Keep the exam window focused.',
-    copy: 'Copying is not allowed during the exam.',
-    paste: 'Pasting is not allowed during the exam.',
-    unauthorizedFocus: 'Keep the exam window active and focused.',
-    multipleTabs: 'Multiple tabs detected. Please close other tabs.',
-    devTools: 'Developer tools access is prohibited.'
-  };
-  
-  return messages[type] || 'Suspicious activity detected.';
 }
 
 module.exports = router;
