@@ -232,7 +232,6 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '3h' }
     );
-
     // Store session in Redis
     const sessionKey = `session:${user._id}`;
     await redisClient.setEx(sessionKey, 3 * 60 * 60, token);
@@ -261,6 +260,85 @@ router.post('/login', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Login failed'
+    });
+  }
+});
+
+// Demo login endpoint (without time restrictions)
+router.post('/demo-login', async (req, res) => {
+  try {
+    const { error, value } = loginSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: error.details[0].message
+      });
+    }
+
+    const user = await User.findOne({ email: value.email });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
+
+    // Check if user is accepted (but no time restrictions for demo)
+    if (user.status !== 'accepted') {
+      return res.status(401).json({
+        success: false,
+        error: 'Your application is not yet accepted'
+      });
+    }
+
+    // Check exam password
+    if (user.examPassword !== value.password) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
+
+    // Generate JWT token for demo (longer expiry)
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        email: user.email,
+        isDemo: true // Flag to identify demo sessions
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' } // Longer expiry for demo
+    );
+
+    // Store session in Redis with demo flag
+    const sessionKey = `demo-session:${user._id}`;
+    await redisClient.setEx(sessionKey, 24 * 60 * 60, token);
+
+    // Log demo login
+    await AuditLog.create({
+      userId: user._id,
+      ip: req.ip,
+      event: 'DEMO_LOGIN',
+      details: { userAgent: req.get('User-Agent') }
+    });
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
+      },
+      isDemo: true
+    });
+
+  } catch (error) {
+    console.error('Demo login error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Demo login failed'
     });
   }
 });
