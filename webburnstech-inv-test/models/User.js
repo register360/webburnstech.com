@@ -98,5 +98,5 @@ userSchema.methods.verifyOTP = function(enteredOTP) {
   
   return this.otp.code === enteredOTP;
 };
-
-module.exports = mongoose.model('User', userSchema);
+const collectionName = process.env.USER_COLLECTION || 'users_exam';
+module.exports = mongoose.model('User', userSchema, collectionName);
