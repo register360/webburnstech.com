@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { redisClient } = require('../server.js');
 const User = require('../models/User');
 const { sendEmail } = require('../utils/emailService');
 const AuditLog = require('../models/AuditLog');
@@ -7,33 +8,6 @@ const router = express.Router();
 
 // Input validation schemas
 const Joi = require('joi');
-
-// Redis client with fallback
-let redisClient;
-try {
-    redisClient = require('../server.js').redisClient;
-} catch (error) {
-    console.warn('Redis client not available, using in-memory fallback');
-    // In-memory fallback storage
-    const memoryStore = new Map();
-    redisClient = {
-        async setEx(key, seconds, value) {
-            memoryStore.set(key, value);
-            setTimeout(() => memoryStore.delete(key), seconds * 1000);
-            return 'OK';
-        },
-        async get(key) {
-            return memoryStore.get(key) || null;
-        },
-        async del(key) {
-            return memoryStore.delete(key);
-        },
-        async exists(key) {
-            return memoryStore.has(key) ? 1 : 0;
-        },
-        isOpen: true
-    };
-}
 
 const registerSchema = Joi.object({
   firstName: Joi.string().trim().min(1).max(50).required(),
@@ -58,44 +32,8 @@ const loginSchema = Joi.object({
   password: Joi.string().required()
 });
 
-// Helper function to safely use Redis
-const safeRedisSetEx = async (key, seconds, value) => {
-  try {
-    if (redisClient && redisClient.setEx) {
-      return await redisClient.setEx(key, seconds, value);
-    }
-    console.warn('Redis not available, using fallback storage');
-    // Fallback to in-memory storage
-    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
-    memoryStore.set(key, value);
-    setTimeout(() => memoryStore.delete(key), seconds * 1000);
-    return 'OK';
-  } catch (error) {
-    console.warn('Redis setEx failed, using fallback:', error.message);
-    // Fallback to in-memory storage
-    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
-    memoryStore.set(key, value);
-    setTimeout(() => memoryStore.delete(key), seconds * 1000);
-    return 'OK';
-  }
-};
-
-const safeRedisGet = async (key) => {
-  try {
-    if (redisClient && redisClient.get) {
-      return await redisClient.get(key);
-    }
-    // Fallback to in-memory storage
-    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
-    return memoryStore.get(key) || null;
-  } catch (error) {
-    console.warn('Redis get failed, using fallback:', error.message);
-    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
-    return memoryStore.get(key) || null;
-  }
-};
-
 // Register endpoint
+// Register endpoint (updated)
 router.post('/register', async (req, res) => {
   try {
     const { error, value } = registerSchema.validate(req.body);
@@ -108,6 +46,44 @@ router.post('/register', async (req, res) => {
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: value.email });
+
+    /* ------------------------------------------
+       CASE 1 → USER EXISTS + STATUS = "pending"
+       => Resend OTP & allow user to verify
+    ------------------------------------------- */
+    if (existingUser && existingUser.status === 'pending') {
+      const otp = existingUser.generateOTP();
+      await existingUser.save();
+
+      const emailSent = await sendEmail({
+        to: existingUser.email,
+        subject: 'WebburnsTech Mock Test - Verification Code',
+        html: `
+          <h2>Email Verification</h2>
+          <p>Hi ${existingUser.firstName} ${existingUser.lastname},</p>
+          <p>Your verification code is: <strong>${otp}</strong></p>
+          <p>This OTP expires in 15 minutes.</p>
+        `
+      });
+
+      if (!emailSent) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to resend OTP email'
+        });
+      }
+
+      return res.json({
+        success: true,
+        userId: existingUser._id,
+        message: 'Existing user pending verification — OTP re-sent'
+      });
+    }
+
+    /* ------------------------------------------
+       CASE 2 → USER EXISTS but NOT pending
+       e.g., verified / accepted / rejected
+    ------------------------------------------- */
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -115,24 +91,21 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create new user
+    /* ------------------------------------------
+       CASE 3 → USER DOES NOT EXIST → create new
+    ------------------------------------------- */
     const user = new User(value);
     const otp = user.generateOTP();
     await user.save();
 
-    // Send OTP email
     const emailSent = await sendEmail({
       to: user.email,
       subject: 'WebburnsTech Mock Test - Verify your email',
       html: `
         <h2>WebburnsTech Mock Test - Email Verification</h2>
-        <p>Hi ${user.firstName},</p>
-        <p>Your verification code is: <strong>${otp}</strong></p>
-        <p>This code expires in 15 minutes.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-        <p>Best regards,<br>WebburnsTech Team</p>
-      `,
-      text: `Your WebburnsTech Mock Test verification code is: ${otp}. This code expires in 15 minutes.`
+        <p>Hi ${user.firstName} ${user.lastname},</p>
+        <p>Your OTP is: <strong>${otp}</strong></p>
+      `
     });
 
     if (!emailSent) {
@@ -142,7 +115,6 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Log registration
     await AuditLog.create({
       userId: user._id,
       ip: req.ip,
@@ -153,7 +125,7 @@ router.post('/register', async (req, res) => {
     res.json({
       success: true,
       userId: user._id,
-      message: 'Registration successful. OTP sent to your email.'
+      message: 'Registration successful. OTP sent.'
     });
 
   } catch (error) {
@@ -295,10 +267,9 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '3h' }
     );
-
-    // Store session in Redis (with fallback)
+    // Store session in Redis
     const sessionKey = `session:${user._id}`;
-    await safeRedisSetEx(sessionKey, 3 * 60 * 60, token);
+    await redisClient.setEx(sessionKey, 3 * 60 * 60, token);
 
     // Log login
     await AuditLog.create({
@@ -374,9 +345,9 @@ router.post('/demo-login', async (req, res) => {
       { expiresIn: '24h' } // Longer expiry for demo
     );
 
-    // Store session in Redis with demo flag (with fallback)
+    // Store session in Redis with demo flag
     const sessionKey = `demo-session:${user._id}`;
-    await safeRedisSetEx(sessionKey, 24 * 60 * 60, token);
+    await redisClient.setEx(sessionKey, 24 * 60 * 60, token);
 
     // Log demo login
     await AuditLog.create({
@@ -436,7 +407,7 @@ router.post('/resend-otp', async (req, res) => {
 
     // Check rate limiting for OTP resend
     const otpKey = `otp_resend:${userId}`;
-    const resendCount = await safeRedisGet(otpKey);
+    const resendCount = await redisClient.get(otpKey);
     
     if (resendCount && parseInt(resendCount) >= 3) {
       return res.status(429).json({
@@ -450,7 +421,7 @@ router.post('/resend-otp', async (req, res) => {
     await user.save();
 
     // Update resend count
-    await safeRedisSetEx(otpKey, 3600, (parseInt(resendCount) || 0) + 1);
+    await redisClient.setEx(otpKey, 3600, (parseInt(resendCount) || 0) + 1);
 
     // Send OTP email
     const emailSent = await sendEmail({
