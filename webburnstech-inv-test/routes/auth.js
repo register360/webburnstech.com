@@ -60,7 +60,7 @@ router.post('/register', async (req, res) => {
         subject: 'WebburnsTech Mock Test - Verification Code',
         html: `
           <h2>Email Verification</h2>
-          <p>Hi ${existingUser.firstName} ${existingUser.lastname},</p>
+          <p>Hi ${existingUser.firstName} ${existingUser.lastName},</p>
           <p>Your verification code is: <strong>${otp}</strong></p>
           <p>This OTP expires in 15 minutes.</p>
         `
@@ -103,7 +103,7 @@ router.post('/register', async (req, res) => {
       subject: 'WebburnsTech Mock Test - Verify your email',
       html: `
         <h2>WebburnsTech Mock Test - Email Verification</h2>
-        <p>Hi ${user.firstName} ${user.lastname},</p>
+        <p>Hi ${user.firstName} ${user.lastName},</p>
         <p>Your OTP is: <strong>${otp}</strong></p>
       `
     });
@@ -182,7 +182,7 @@ router.post('/verify-otp', async (req, res) => {
       subject: 'WebburnsTech — Application received',
       html: `
         <h2>Application Received</h2>
-        <p>Hi ${user.firstName},</p>
+        <p>Hi ${user.firstName}  ${user.lastName},</p>
         <p>We have received your application and are verifying it. If your application is accepted, exam credentials will be sent on the day of the exam (30 Nov 2025), <strong>2 hours before the exam start time (16:00 IST)</strong>.</p>
         <p>If rejected, you will receive a rejection mail.</p>
         <p>Thanks,<br>WebburnsTech Team</p>
