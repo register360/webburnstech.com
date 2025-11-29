@@ -25,10 +25,13 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Save to DB
     const contact = new Contact(value);
     await contact.save();
 
-    // Send email to admin
+    /* -----------------------------------
+       1️⃣ Email sent to ADMIN
+    ------------------------------------ */
     await sendEmail({
       to: process.env.ADMIN_EMAIL || 'webburnstech@gmail.com',
       subject: `Contact Form: ${value.priority.toUpperCase()} - ${value.subject}`,
@@ -41,6 +44,32 @@ router.post('/', async (req, res) => {
         <p><strong>Subject:</strong> ${value.subject}</p>
         <p><strong>Message:</strong></p>
         <p>${value.message}</p>
+      `
+    });
+
+    /* -----------------------------------
+       2️⃣ Auto-reply email to the USER
+    ------------------------------------ */
+    await sendEmail({
+      to: value.email,
+      subject: `We received your message - WebburnsTech Support`,
+      html: `
+        <h2>Thank you for contacting WebburnsTech</h2>
+        <p>Hi ${value.firstName},</p>
+        <p>We have received your message and our support team will respond based on your priority level:</p>
+        
+        <ul>
+           <li><strong>Low:</strong> 48 hours</li>
+           <li><strong>Medium:</strong> 24 hours</li>
+           <li><strong>High:</strong> 6 hours</li>
+        </ul>
+
+        <h3>Your Message:</h3>
+        <p><strong>Subject:</strong> ${value.subject}</p>
+        <p>${value.message}</p>
+
+        <br>
+        <p>Regards,<br>WebburnsTech Support Team</p>
       `
     });
 
