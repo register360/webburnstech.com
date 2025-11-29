@@ -1,6 +1,5 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { redisClient } = require('../server');
 const Question = require('../models/Question');
 const Attempt = require('../models/Attempt');
 const User = require('../models/User');
@@ -23,7 +22,7 @@ const authenticate = async (req, res, next) => {
     
     // Check Redis for valid session
     const sessionKey = `session:${decoded.userId}`;
-    const redisToken = await redisClient.get(sessionKey);
+    const redisToken = await safeRedisGet(sessionKey);
     
     if (!redisToken || redisToken !== token) {
       return res.status(401).json({
@@ -406,10 +405,69 @@ const authenticateDemo = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+    // Redis client with fallback
+let redisClient;
+try {
+    redisClient = require('../server.js').redisClient;
+} catch (error) {
+    console.warn('Redis client not available, using in-memory fallback');
+    // In-memory fallback storage
+    const memoryStore = new Map();
+    redisClient = {
+        async setEx(key, seconds, value) {
+            memoryStore.set(key, value);
+            setTimeout(() => memoryStore.delete(key), seconds * 1000);
+            return 'OK';
+        },
+        async get(key) {
+            return memoryStore.get(key) || null;
+        },
+        async del(key) {
+            return memoryStore.delete(key);
+        },
+        async exists(key) {
+            return memoryStore.has(key) ? 1 : 0;
+        },
+        isOpen: true
+    };
+}
+
+// Helper function to safely use Redis
+const safeRedisSetEx = async (key, seconds, value) => {
+  try {
+    if (redisClient && redisClient.setEx) {
+      return await redisClient.setEx(key, seconds, value);
+    }
+    // Fallback to in-memory storage
+    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
+    memoryStore.set(key, value);
+    setTimeout(() => memoryStore.delete(key), seconds * 1000);
+    return 'OK';
+  } catch (error) {
+    console.warn('Redis setEx failed, using fallback:', error.message);
+    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
+    memoryStore.set(key, value);
+    setTimeout(() => memoryStore.delete(key), seconds * 1000);
+    return 'OK';
+  }
+};
+
+const safeRedisGet = async (key) => {
+  try {
+    if (redisClient && redisClient.get) {
+      return await redisClient.get(key);
+    }
+    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
+    return memoryStore.get(key) || null;
+  } catch (error) {
+    console.warn('Redis get failed, using fallback:', error.message);
+    const memoryStore = global.memoryStore || (global.memoryStore = new Map());
+    return memoryStore.get(key) || null;
+  }
+};
     // Check Redis for valid demo session
     const sessionKey = `demo-session:${decoded.userId}`;
-    const redisToken = await redisClient.get(sessionKey);
+    const redisToken = await safeRedisGet(sessionKey);
     
     if (!redisToken || redisToken !== token) {
       return res.status(401).json({
