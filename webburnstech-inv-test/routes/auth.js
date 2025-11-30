@@ -242,7 +242,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check if user is accepted
     if (user.status !== 'accepted') {
       return res.status(401).json({
         success: false,
@@ -250,7 +249,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check exam password
     if (user.examPassword !== value.password) {
       return res.status(401).json({
         success: false,
@@ -258,10 +256,9 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check exam timing (only allow login during exam window)
     const now = new Date();
-    const examStart = new Date('2025-11-30T10:30:00Z'); // 16:00 IST in UTC
-    const examEnd = new Date('2025-11-30T12:30:00Z'); // 18:00 IST in UTC
+    const examStart = new Date('2025-11-30T10:30:00Z');
+    const examEnd = new Date('2025-11-30T12:30:00Z');
     
     if (now < examStart || now > examEnd) {
       return res.status(403).json({
@@ -279,27 +276,19 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '3h' }
     );
-    
-     // Store session in Redis with error handling
-    try {
-      if (redisClient && redisClient.isOpen) {
-        const sessionKey = `session:${user._id}`;
-        await redisClient.setEx(sessionKey, 3 * 60 * 60, token);
-        console.log('Session stored in Redis');
-      } else {
-        console.warn('Redis not available - session not stored');
-      }
-    } catch (redisError) {
-      console.error('Redis storage error:', redisError);
-      // Continue without storing in Redis
-    }
-    
-    // Log login
+
+    // Store session - this will work with either Redis or memory store
+    const sessionKey = `session:${user._id}`;
+    await redisClient.setEx(sessionKey, 3 * 60 * 60, token);
+
     await AuditLog.create({
       userId: user._id,
       ip: req.ip,
       event: 'LOGIN',
-      details: { userAgent: req.get('User-Agent') }
+      details: { 
+        userAgent: req.get('User-Agent'),
+        storage: getStorageType()
+      }
     });
 
     res.json({
@@ -310,7 +299,8 @@ router.post('/login', async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email
-      }
+      },
+      storage: getStorageType() // For debugging
     });
 
   } catch (error) {
