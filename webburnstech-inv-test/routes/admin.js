@@ -390,8 +390,21 @@ router.post('/send', authenticateAdmin, async (req, res) => {
     }
 
     console.log(`Sent credentials to ${acceptedUsers.length} users`);
+    
+    return res.json({
+      success: true,
+      sentCount: acceptedUsers.length,
+      message: "Credentials sent to all accepted users."
+    });
+    
   } catch (error) {
     console.error('Error sending exam credentials:', error);
+    
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to send credentials.'
+    });
+    
   }
 });
 
