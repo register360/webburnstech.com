@@ -3,10 +3,10 @@ const redis = require('redis');
 
 const redisClient = redis.createClient({
   socket: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379
+    host: process.env.REDIS_HOST || 'redis-10611.crce179.ap-south-1-1.ec2.cloud.redislabs.com:10611',
+    port: process.env.REDIS_PORT || 10611
   },
-  password: process.env.REDIS_PASSWORD || undefined
+  password: process.env.REDIS_PASSWORD || 'UZr9sy5utYZklg5y49CYcai2o0sB5uPi'
 });
 
 redisClient.on('error', (err) => {
