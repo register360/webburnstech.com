@@ -18,6 +18,9 @@ app.use(cors({
   credentials: true
 }));
 
+// Import Redis (standalone module)
+const redisClient = require("./utils/redis");
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
