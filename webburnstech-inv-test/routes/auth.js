@@ -1,22 +1,9 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const redisClient = require('../redisClient');
 const User = require('../models/User');
 const { sendEmail } = require('../utils/emailService');
 const AuditLog = require('../models/AuditLog');
 const router = express.Router();
-
-// Add Redis connection check middleware
-const checkRedis = async (req, res, next) => {
-  if (!redisClient || !redisClient.isOpen) {
-    console.warn('Redis not available, proceeding without session storage');
-    // Continue without Redis, but you might want to handle this differently
-  }
-  next();
-};
-
-// Apply to all routes that use Redis
-router.use(checkRedis);
 
 // Input validation schemas
 const Joi = require('joi');
@@ -44,8 +31,23 @@ const loginSchema = Joi.object({
   password: Joi.string().required()
 });
 
+// Simple in-memory store for rate limiting
+const memoryStore = new Map();
+
+// Helper functions for memory storage
+const memorySetEx = async (key, seconds, value) => {
+  memoryStore.set(key, value);
+  setTimeout(() => {
+    memoryStore.delete(key);
+  }, seconds * 1000);
+  return 'OK';
+};
+
+const memoryGet = async (key) => {
+  return memoryStore.get(key) || null;
+};
+
 // Register endpoint
-// Register endpoint (updated)
 router.post('/register', async (req, res) => {
   try {
     const { error, value } = registerSchema.validate(req.body);
@@ -223,7 +225,7 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-// Login endpoint
+// Login endpoint (without Redis)
 router.post('/login', async (req, res) => {
   try {
     const { error, value } = loginSchema.validate(req.body);
@@ -242,6 +244,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Check if user is accepted
     if (user.status !== 'accepted') {
       return res.status(401).json({
         success: false,
@@ -249,6 +252,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Check exam password
     if (user.examPassword !== value.password) {
       return res.status(401).json({
         success: false,
@@ -256,9 +260,10 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Check exam timing (only allow login during exam window)
     const now = new Date();
-    const examStart = new Date('2025-11-30T10:30:00Z');
-    const examEnd = new Date('2025-11-30T12:30:00Z');
+    const examStart = new Date('2025-11-30T10:30:00Z'); // 16:00 IST in UTC
+    const examEnd = new Date('2025-11-30T12:30:00Z'); // 18:00 IST in UTC
     
     if (now < examStart || now > examEnd) {
       return res.status(403).json({
@@ -277,18 +282,16 @@ router.post('/login', async (req, res) => {
       { expiresIn: '3h' }
     );
 
-    // Store session - this will work with either Redis or memory store
+    // Store session in memory (optional - you can remove this if not needed)
     const sessionKey = `session:${user._id}`;
-    await redisClient.setEx(sessionKey, 3 * 60 * 60, token);
+    await memorySetEx(sessionKey, 3 * 60 * 60, token);
 
+    // Log login
     await AuditLog.create({
       userId: user._id,
       ip: req.ip,
       event: 'LOGIN',
-      details: { 
-        userAgent: req.get('User-Agent'),
-        storage: getStorageType()
-      }
+      details: { userAgent: req.get('User-Agent') }
     });
 
     res.json({
@@ -299,8 +302,7 @@ router.post('/login', async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email
-      },
-      storage: getStorageType() // For debugging
+      }
     });
 
   } catch (error) {
@@ -358,9 +360,9 @@ router.post('/demo-login', async (req, res) => {
       { expiresIn: '24h' } // Longer expiry for demo
     );
 
-    // Store session in Redis with demo flag
+    // Store demo session in memory (optional)
     const sessionKey = `demo-session:${user._id}`;
-    await redisClient.setEx(sessionKey, 24 * 60 * 60, token);
+    await memorySetEx(sessionKey, 24 * 60 * 60, token);
 
     // Log demo login
     await AuditLog.create({
@@ -391,7 +393,7 @@ router.post('/demo-login', async (req, res) => {
   }
 });
 
-// Resend OTP endpoint
+// Resend OTP endpoint (with memory-based rate limiting)
 router.post('/resend-otp', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -418,9 +420,9 @@ router.post('/resend-otp', async (req, res) => {
       });
     }
 
-    // Check rate limiting for OTP resend
+    // Check rate limiting for OTP resend using memory store
     const otpKey = `otp_resend:${userId}`;
-    const resendCount = await redisClient.get(otpKey);
+    const resendCount = await memoryGet(otpKey);
     
     if (resendCount && parseInt(resendCount) >= 3) {
       return res.status(429).json({
@@ -433,8 +435,8 @@ router.post('/resend-otp', async (req, res) => {
     const otp = user.generateOTP();
     await user.save();
 
-    // Update resend count
-    await redisClient.setEx(otpKey, 3600, (parseInt(resendCount) || 0) + 1);
+    // Update resend count in memory
+    await memorySetEx(otpKey, 3600, (parseInt(resendCount) || 0) + 1);
 
     // Send OTP email
     const emailSent = await sendEmail({
