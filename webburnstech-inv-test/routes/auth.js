@@ -1,10 +1,22 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const redisClient = require('../server.js').redisClient;
+const redisClient = require('../redisClient');
 const User = require('../models/User');
 const { sendEmail } = require('../utils/emailService');
 const AuditLog = require('../models/AuditLog');
 const router = express.Router();
+
+// Add Redis connection check middleware
+const checkRedis = async (req, res, next) => {
+  if (!redisClient || !redisClient.isOpen) {
+    console.warn('Redis not available, proceeding without session storage');
+    // Continue without Redis, but you might want to handle this differently
+  }
+  next();
+};
+
+// Apply to all routes that use Redis
+router.use(checkRedis);
 
 // Input validation schemas
 const Joi = require('joi');
@@ -267,10 +279,21 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '3h' }
     );
-    // Store session in Redis
-    const sessionKey = `session:${user._id}`;
-    await redisClient.setEx(sessionKey, 3 * 60 * 60, token);
-
+    
+     // Store session in Redis with error handling
+    try {
+      if (redisClient && redisClient.isOpen) {
+        const sessionKey = `session:${user._id}`;
+        await redisClient.setEx(sessionKey, 3 * 60 * 60, token);
+        console.log('Session stored in Redis');
+      } else {
+        console.warn('Redis not available - session not stored');
+      }
+    } catch (redisError) {
+      console.error('Redis storage error:', redisError);
+      // Continue without storing in Redis
+    }
+    
     // Log login
     await AuditLog.create({
       userId: user._id,
