@@ -349,8 +349,7 @@ router.post('/questions/bulk', authenticateAdmin, async (req, res) => {
 router.post('/send', authenticateAdmin, async (req, res) => {
   try {
     const acceptedUsers = await User.find({ 
-      status: 'accepted', 
-      credentialsSentAt: null 
+      status: 'accepted'
     });
 
     for (const user of acceptedUsers) {
