@@ -19,7 +19,7 @@ app.use(cors({
 }));
 
 // Import Redis (standalone module)
-const redisClient = require("./utils/redis");
+const redisClient = require("./utils/redisClient");
 
 // Rate limiting
 const limiter = rateLimit({
