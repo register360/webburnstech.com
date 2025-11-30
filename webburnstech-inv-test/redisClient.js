@@ -1,30 +1,51 @@
 // redisClient.js
-const redis = require('redis');
+const memoryStore = require('./memoryStore');
 
-const redisClient = redis.createClient({
-  socket: {
-    host: process.env.REDIS_HOST || 'redis-10611.crce179.ap-south-1-1.ec2.cloud.redislabs.com:10611',
-    port: process.env.REDIS_PORT || 10611
-  },
-  password: process.env.REDIS_PASSWORD || 'UZr9sy5utYZklg5y49CYcai2o0sB5uPi'
-});
+let client = memoryStore; // Default to memory store
+let usingRedis = false;
 
-redisClient.on('error', (err) => {
-  console.error('Redis Client Error:', err);
-});
-
-redisClient.on('connect', () => {
-  console.log('Redis Client Connected');
-});
-
-// Connect to Redis
-(async () => {
+// Only try to use real Redis if REDIS_URL is provided and valid
+if (process.env.REDIS_URL && process.env.REDIS_URL.startsWith('redis://')) {
   try {
-    await redisClient.connect();
-    console.log('Redis connection established');
-  } catch (err) {
-    console.error('Failed to connect to Redis:', err);
-  }
-})();
+    const redis = require('redis');
+    const redisClient = redis.createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        connectTimeout: 10000,
+        reconnectStrategy: (retries) => Math.min(retries * 100, 3000)
+      }
+    });
 
-module.exports = redisClient;
+    redisClient.on('error', (err) => {
+      console.error('Redis Client Error, falling back to memory store:', err.message);
+      client = memoryStore;
+      usingRedis = false;
+    });
+
+    redisClient.on('connect', () => {
+      console.log('Redis Client Connected');
+      client = redisClient;
+      usingRedis = true;
+    });
+
+    // Try to connect, but fall back to memory store if it fails
+    redisClient.connect().catch(err => {
+      console.error('Failed to connect to Redis, using memory store:', err.message);
+      client = memoryStore;
+      usingRedis = false;
+    });
+
+  } catch (error) {
+    console.error('Redis package not available, using memory store:', error.message);
+    client = memoryStore;
+    usingRedis = false;
+  }
+} else {
+  console.log('No REDIS_URL provided, using memory store');
+}
+
+module.exports = {
+  redisClient: client,
+  isRedisConnected: () => usingRedis,
+  getStorageType: () => usingRedis ? 'redis' : 'memory'
+};
