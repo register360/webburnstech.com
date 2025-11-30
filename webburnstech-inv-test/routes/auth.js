@@ -1,7 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { redisClient } = require('../server');
 const { sendEmail } = require('../utils/emailService');
+const User = require('../models/User');
 const AuditLog = require('../models/AuditLog');
 const router = express.Router();
 
@@ -31,22 +32,6 @@ const loginSchema = Joi.object({
   password: Joi.string().required()
 });
 
-// Simple in-memory store for rate limiting
-const memoryStore = new Map();
-
-// Helper functions for memory storage
-const memorySetEx = async (key, seconds, value) => {
-  memoryStore.set(key, value);
-  setTimeout(() => {
-    memoryStore.delete(key);
-  }, seconds * 1000);
-  return 'OK';
-};
-
-const memoryGet = async (key) => {
-  return memoryStore.get(key) || null;
-};
-
 // Register endpoint
 router.post('/register', async (req, res) => {
   try {
@@ -60,44 +45,6 @@ router.post('/register', async (req, res) => {
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: value.email });
-
-    /* ------------------------------------------
-       CASE 1 → USER EXISTS + STATUS = "pending"
-       => Resend OTP & allow user to verify
-    ------------------------------------------- */
-    if (existingUser && existingUser.status === 'pending') {
-      const otp = existingUser.generateOTP();
-      await existingUser.save();
-
-      const emailSent = await sendEmail({
-        to: existingUser.email,
-        subject: 'WebburnsTech Mock Test - Verification Code',
-        html: `
-          <h2>Email Verification</h2>
-          <p>Hi ${existingUser.firstName} ${existingUser.lastName},</p>
-          <p>Your verification code is: <strong>${otp}</strong></p>
-          <p>This OTP expires in 15 minutes.</p>
-        `
-      });
-
-      if (!emailSent) {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to resend OTP email'
-        });
-      }
-
-      return res.json({
-        success: true,
-        userId: existingUser._id,
-        message: 'Existing user pending verification — OTP re-sent'
-      });
-    }
-
-    /* ------------------------------------------
-       CASE 2 → USER EXISTS but NOT pending
-       e.g., verified / accepted / rejected
-    ------------------------------------------- */
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -105,21 +52,24 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    /* ------------------------------------------
-       CASE 3 → USER DOES NOT EXIST → create new
-    ------------------------------------------- */
+    // Create new user
     const user = new User(value);
     const otp = user.generateOTP();
     await user.save();
 
+    // Send OTP email
     const emailSent = await sendEmail({
       to: user.email,
       subject: 'WebburnsTech Mock Test - Verify your email',
       html: `
         <h2>WebburnsTech Mock Test - Email Verification</h2>
-        <p>Hi ${user.firstName} ${user.lastName},</p>
-        <p>Your OTP is: <strong>${otp}</strong></p>
-      `
+        <p>Hi ${user.firstName},</p>
+        <p>Your verification code is: <strong>${otp}</strong></p>
+        <p>This code expires in 15 minutes.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>Best regards,<br>WebburnsTech Team</p>
+      `,
+      text: `Your WebburnsTech Mock Test verification code is: ${otp}. This code expires in 15 minutes.`
     });
 
     if (!emailSent) {
@@ -129,6 +79,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    // Log registration
     await AuditLog.create({
       userId: user._id,
       ip: req.ip,
@@ -139,7 +90,7 @@ router.post('/register', async (req, res) => {
     res.json({
       success: true,
       userId: user._id,
-      message: 'Registration successful. OTP sent.'
+      message: 'Registration successful. OTP sent to your email.'
     });
 
   } catch (error) {
@@ -196,7 +147,7 @@ router.post('/verify-otp', async (req, res) => {
       subject: 'WebburnsTech — Application received',
       html: `
         <h2>Application Received</h2>
-        <p>Hi ${user.firstName}  ${user.lastName},</p>
+        <p>Hi ${user.firstName},</p>
         <p>We have received your application and are verifying it. If your application is accepted, exam credentials will be sent on the day of the exam (30 Nov 2025), <strong>2 hours before the exam start time (16:00 IST)</strong>.</p>
         <p>If rejected, you will receive a rejection mail.</p>
         <p>Thanks,<br>WebburnsTech Team</p>
@@ -225,7 +176,7 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-// Login endpoint (without Redis)
+// Login endpoint
 router.post('/login', async (req, res) => {
   try {
     const { error, value } = loginSchema.validate(req.body);
@@ -282,9 +233,9 @@ router.post('/login', async (req, res) => {
       { expiresIn: '3h' }
     );
 
-    // Store session in memory (optional - you can remove this if not needed)
+    // Store session in Redis
     const sessionKey = `session:${user._id}`;
-    await memorySetEx(sessionKey, 3 * 60 * 60, token);
+    await redisClient.setEx(sessionKey, 3 * 60 * 60, token);
 
     // Log login
     await AuditLog.create({
@@ -314,86 +265,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Demo login endpoint (without time restrictions)
-router.post('/demo-login', async (req, res) => {
-  try {
-    const { error, value } = loginSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        success: false,
-        error: error.details[0].message
-      });
-    }
-
-    const user = await User.findOne({ email: value.email });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
-
-    // Check if user is accepted (but no time restrictions for demo)
-    if (user.status !== 'accepted') {
-      return res.status(401).json({
-        success: false,
-        error: 'Your application is not yet accepted'
-      });
-    }
-
-    // Check exam password
-    if (user.examPassword !== value.password) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
-
-    // Generate JWT token for demo (longer expiry)
-    const token = jwt.sign(
-      { 
-        userId: user._id,
-        email: user.email,
-        isDemo: true // Flag to identify demo sessions
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' } // Longer expiry for demo
-    );
-
-    // Store demo session in memory (optional)
-    const sessionKey = `demo-session:${user._id}`;
-    await memorySetEx(sessionKey, 24 * 60 * 60, token);
-
-    // Log demo login
-    await AuditLog.create({
-      userId: user._id,
-      ip: req.ip,
-      event: 'DEMO_LOGIN',
-      details: { userAgent: req.get('User-Agent') }
-    });
-
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email
-      },
-      isDemo: true
-    });
-
-  } catch (error) {
-    console.error('Demo login error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Demo login failed'
-    });
-  }
-});
-
-// Resend OTP endpoint (with memory-based rate limiting)
+// Resend OTP endpoint
 router.post('/resend-otp', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -420,9 +292,9 @@ router.post('/resend-otp', async (req, res) => {
       });
     }
 
-    // Check rate limiting for OTP resend using memory store
+    // Check rate limiting for OTP resend
     const otpKey = `otp_resend:${userId}`;
-    const resendCount = await memoryGet(otpKey);
+    const resendCount = await redisClient.get(otpKey);
     
     if (resendCount && parseInt(resendCount) >= 3) {
       return res.status(429).json({
@@ -435,8 +307,8 @@ router.post('/resend-otp', async (req, res) => {
     const otp = user.generateOTP();
     await user.save();
 
-    // Update resend count in memory
-    await memorySetEx(otpKey, 3600, (parseInt(resendCount) || 0) + 1);
+    // Update resend count
+    await redisClient.setEx(otpKey, 3600, (parseInt(resendCount) || 0) + 1);
 
     // Send OTP email
     const emailSent = await sendEmail({
