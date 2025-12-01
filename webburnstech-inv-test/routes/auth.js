@@ -32,7 +32,7 @@ const loginSchema = Joi.object({
   password: Joi.string().required()
 });
 
-// Register endpoint
+// Register endpoint (updated)
 router.post('/register', async (req, res) => {
   try {
     const { error, value } = registerSchema.validate(req.body);
@@ -45,6 +45,44 @@ router.post('/register', async (req, res) => {
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: value.email });
+
+    /* ------------------------------------------
+       CASE 1 → USER EXISTS + STATUS = "pending"
+       => Resend OTP & allow user to verify
+    ------------------------------------------- */
+    if (existingUser && existingUser.status === 'pending') {
+      const otp = existingUser.generateOTP();
+      await existingUser.save();
+
+      const emailSent = await sendEmail({
+        to: existingUser.email,
+        subject: 'WebburnsTech Mock Test - Verification Code',
+        html: `
+          <h2>Email Verification</h2>
+          <p>Hi ${existingUser.firstName},</p>
+          <p>Your verification code is: <strong>${otp}</strong></p>
+          <p>This OTP expires in 15 minutes.</p>
+        `
+      });
+
+      if (!emailSent) {
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to resend OTP email'
+        });
+      }
+
+      return res.json({
+        success: true,
+        userId: existingUser._id,
+        message: 'Existing user pending verification — OTP re-sent'
+      });
+    }
+
+    /* ------------------------------------------
+       CASE 2 → USER EXISTS but NOT pending
+       e.g., verified / accepted / rejected
+    ------------------------------------------- */
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -52,24 +90,21 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Create new user
+    /* ------------------------------------------
+       CASE 3 → USER DOES NOT EXIST → create new
+    ------------------------------------------- */
     const user = new User(value);
     const otp = user.generateOTP();
     await user.save();
 
-    // Send OTP email
     const emailSent = await sendEmail({
       to: user.email,
       subject: 'WebburnsTech Mock Test - Verify your email',
       html: `
         <h2>WebburnsTech Mock Test - Email Verification</h2>
         <p>Hi ${user.firstName},</p>
-        <p>Your verification code is: <strong>${otp}</strong></p>
-        <p>This code expires in 15 minutes.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-        <p>Best regards,<br>WebburnsTech Team</p>
-      `,
-      text: `Your WebburnsTech Mock Test verification code is: ${otp}. This code expires in 15 minutes.`
+        <p>Your OTP is: <strong>${otp}</strong></p>
+      `
     });
 
     if (!emailSent) {
@@ -79,7 +114,6 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Log registration
     await AuditLog.create({
       userId: user._id,
       ip: req.ip,
@@ -90,7 +124,7 @@ router.post('/register', async (req, res) => {
     res.json({
       success: true,
       userId: user._id,
-      message: 'Registration successful. OTP sent to your email.'
+      message: 'Registration successful. OTP sent.'
     });
 
   } catch (error) {
@@ -147,7 +181,7 @@ router.post('/verify-otp', async (req, res) => {
       subject: 'WebburnsTech — Application received',
       html: `
         <h2>Application Received</h2>
-        <p>Hi ${user.firstName},</p>
+        <p>Hi ${user.firstName} ${user.lastName},</p>
         <p>We have received your application and are verifying it. If your application is accepted, exam credentials will be sent on the day of the exam (30 Nov 2025), <strong>2 hours before the exam start time (16:00 IST)</strong>.</p>
         <p>If rejected, you will receive a rejection mail.</p>
         <p>Thanks,<br>WebburnsTech Team</p>
