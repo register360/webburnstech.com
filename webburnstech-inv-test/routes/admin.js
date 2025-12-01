@@ -83,7 +83,8 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      stats:{logs: logsStats}
+      stats,
+      logsStats
     });
 
   } catch (error) {
