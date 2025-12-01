@@ -28,6 +28,18 @@ const authenticateAdmin = async (req, res, next) => {
   }
 };
 
+// Helper function to determine severity level
+const getSeverityLevel = (event) => {
+  const highEvents = ['CHEATING_DETECTED', 'SECURITY_VIOLATION', 'MULTIPLE_ACCOUNTS'];
+  const mediumEvents = ['LOGIN_FAILED', 'PASSWORD_RESET', 'USER_UPDATED'];
+  const lowEvents = ['LOGIN_SUCCESS', 'LOGOUT', 'PAGE_VISIT'];
+  
+  if (highEvents.includes(event)) return 'high';
+  if (mediumEvents.includes(event)) return 'medium';
+  if (lowEvents.includes(event)) return 'low';
+  return 'info';
+};
+
 // Get dashboard stats
 router.get('/stats', authenticateAdmin, async (req, res) => {
   try {
@@ -39,7 +51,18 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
         }
       }
     ]);
-
+    
+    // Add logs stats
+    const logsStats = {
+      totalLogs: await AuditLog.countDocuments(),
+      todayLogs: await AuditLog.countDocuments({
+        timestamp: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+      }),
+      highSeverityLogs: await AuditLog.countDocuments({
+        event: { $in: ['CHEATING_DETECTED', 'SECURITY_VIOLATION'] }
+      })
+    };
+    
     const stats = {
       users: {
         total: await User.countDocuments(),
@@ -60,7 +83,7 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      stats
+      stats:{logs: logsStats}
     });
 
   } catch (error) {
@@ -404,6 +427,541 @@ router.post('/send', authenticateAdmin, async (req, res) => {
       error: 'Failed to send credentials.'
     });
     
+  }
+});
+
+// ==================== AUDIT LOGS ENDPOINTS ====================
+
+// Get all audit logs with pagination and filtering
+router.get('/logs', authenticateAdmin, async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      event,
+      userId,
+      startDate,
+      endDate,
+      search,
+      severity,
+      sortBy = 'timestamp',
+      sortOrder = 'desc'
+    } = req.query;
+
+    // Build filter object
+    const filter = {};
+
+    if (event) {
+      filter.event = event;
+    }
+
+    if (userId) {
+      filter.userId = userId;
+    }
+
+    if (startDate || endDate) {
+      filter.timestamp = {};
+      if (startDate) {
+        filter.timestamp.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.timestamp.$lte = new Date(endDate);
+      }
+    }
+
+    if (search) {
+      filter.$or = [
+        { 'details.description': { $regex: search, $options: 'i' } },
+        { 'details.ip': { $regex: search, $options: 'i' } },
+        { 'details.userAgent': { $regex: search, $options: 'i' } },
+        { event: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add severity filter
+    if (severity && severity !== 'all') {
+      const eventsBySeverity = {
+        high: ['CHEATING_DETECTED', 'SECURITY_VIOLATION', 'MULTIPLE_ACCOUNTS'],
+        medium: ['LOGIN_FAILED', 'PASSWORD_RESET', 'USER_UPDATED', 'APPLICATION_REJECTED'],
+        low: ['LOGIN_SUCCESS', 'LOGOUT', 'PAGE_VISIT', 'APPLICATION_SUBMITTED'],
+        info: ['APPLICATION_ACCEPTED', 'EMAIL_SENT', 'SYSTEM_EVENT']
+      };
+      
+      if (eventsBySeverity[severity]) {
+        filter.event = { $in: eventsBySeverity[severity] };
+      }
+    }
+
+    // Sort configuration
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    // Execute query with pagination
+    const logs = await AuditLog.find(filter)
+      .populate('userId', 'firstName lastName email userID')
+      .sort(sort)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
+
+    // Get total count for pagination
+    const total = await AuditLog.countDocuments(filter);
+
+    // Format logs for response
+    const formattedLogs = logs.map(log => ({
+      id: log._id,
+      userId: log.userId ? {
+        _id: log.userId._id,
+        name: `${log.userId.firstName} ${log.userId.lastName}`,
+        email: log.userId.email,
+        userID: log.userId.userID
+      } : null,
+      ip: log.ip,
+      event: log.event,
+      details: log.details || {},
+      timestamp: log.timestamp,
+      formattedDate: new Date(log.timestamp).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }),
+      severity: getSeverityLevel(log.event),
+      formattedDetails: JSON.stringify(log.details || {}, null, 2)
+    }));
+
+    res.json({
+      success: true,
+      logs: formattedLogs,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch audit logs'
+    });
+  }
+});
+
+// Get specific log by ID
+router.get('/logs/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const log = await AuditLog.findById(req.params.id)
+      .populate('userId', 'firstName lastName email userID')
+      .lean();
+
+    if (!log) {
+      return res.status(404).json({
+        success: false,
+        error: 'Log not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      log: {
+        ...log,
+        formattedDate: new Date(log.timestamp).toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }),
+        severity: getSeverityLevel(log.event),
+        formattedDetails: JSON.stringify(log.details || {}, null, 2)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching log:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch log'
+    });
+  }
+});
+
+// Get available event types for filtering
+router.get('/logs/events', authenticateAdmin, async (req, res) => {
+  try {
+    const events = await AuditLog.distinct('event');
+    res.json({
+      success: true,
+      events: events.sort()
+    });
+  } catch (error) {
+    console.error('Error fetching event types:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch event types'
+    });
+  }
+});
+
+// Get log statistics
+router.get('/logs/stats', authenticateAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const filter = {};
+    if (startDate) {
+      filter.timestamp = { $gte: new Date(startDate) };
+    }
+    if (endDate) {
+      filter.timestamp = { ...filter.timestamp, $lte: new Date(endDate) };
+    }
+
+    // Get total logs
+    const totalLogs = await AuditLog.countDocuments(filter);
+
+    // Get logs by event type
+    const logsByEvent = await AuditLog.aggregate([
+      { $match: filter },
+      { $group: { _id: '$event', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Get logs by user
+    const logsByUser = await AuditLog.aggregate([
+      { $match: filter },
+      { $group: { _id: '$userId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Get daily activity for last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const dailyActivity = await AuditLog.aggregate([
+      { 
+        $match: { 
+          timestamp: { $gte: thirtyDaysAgo } 
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$timestamp" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Get severity distribution
+    const severityDistribution = await AuditLog.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          severity: {
+            $switch: {
+              branches: [
+                { 
+                  case: { $in: ['$event', ['CHEATING_DETECTED', 'SECURITY_VIOLATION', 'MULTIPLE_ACCOUNTS']] }, 
+                  then: 'high' 
+                },
+                { 
+                  case: { $in: ['$event', ['LOGIN_FAILED', 'PASSWORD_RESET', 'USER_UPDATED', 'APPLICATION_REJECTED']] }, 
+                  then: 'medium' 
+                },
+                { 
+                  case: { $in: ['$event', ['LOGIN_SUCCESS', 'LOGOUT', 'PAGE_VISIT', 'APPLICATION_SUBMITTED']] }, 
+                  then: 'low' 
+                }
+              ],
+              default: 'info'
+            }
+          }
+        }
+      },
+      { $group: { _id: '$severity', count: { $sum: 1 } } }
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalLogs,
+        events: logsByEvent,
+        topUsers: logsByUser,
+        dailyActivity,
+        severityDistribution,
+        timeRange: {
+          startDate: startDate || thirtyDaysAgo.toISOString(),
+          endDate: endDate || new Date().toISOString()
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching log statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch log statistics'
+    });
+  }
+});
+
+// Search logs by user
+router.get('/logs/search/user', authenticateAdmin, async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query is required'
+      });
+    }
+
+    // Find users matching the query
+    const users = await User.find({
+      $or: [
+        { firstName: { $regex: query, $options: 'i' } },
+        { lastName: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } },
+        { userID: { $regex: query, $options: 'i' } }
+      ]
+    }).select('_id');
+
+    const userIds = users.map(user => user._id);
+
+    // Get logs for these users
+    const logs = await AuditLog.find({ userId: { $in: userIds } })
+      .populate('userId', 'firstName lastName email userID')
+      .sort({ timestamp: -1 })
+      .limit(50)
+      .lean();
+
+    const formattedLogs = logs.map(log => ({
+      id: log._id,
+      userId: log.userId ? {
+        _id: log.userId._id,
+        name: `${log.userId.firstName} ${log.userId.lastName}`,
+        email: log.userId.email,
+        userID: log.userId.userID
+      } : null,
+      ip: log.ip,
+      event: log.event,
+      timestamp: log.timestamp,
+      formattedDate: new Date(log.timestamp).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }),
+      severity: getSeverityLevel(log.event)
+    }));
+
+    res.json({
+      success: true,
+      logs: formattedLogs,
+      count: logs.length
+    });
+  } catch (error) {
+    console.error('Error searching logs by user:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to search logs'
+    });
+  }
+});
+
+// Clear old logs (older than 90 days)
+router.delete('/logs/cleanup', authenticateAdmin, async (req, res) => {
+  try {
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    
+    const result = await AuditLog.deleteMany({
+      timestamp: { $lt: ninetyDaysAgo },
+      severity: { $ne: 'high' } // Keep high severity logs
+    });
+
+    // Log the cleanup
+    await AuditLog.create({
+      event: 'SYSTEM_EVENT',
+      details: {
+        description: `Cleaned up ${result.deletedCount} audit logs older than 90 days`,
+        action: 'logs_cleanup'
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Cleaned up ${result.deletedCount} audit logs`,
+      deletedCount: result.deletedCount
+    });
+  } catch (error) {
+    console.error('Error cleaning up logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clean up logs'
+    });
+  }
+});
+
+// Get recent security events (high severity)
+router.get('/logs/security', authenticateAdmin, async (req, res) => {
+  try {
+    const securityEvents = ['CHEATING_DETECTED', 'SECURITY_VIOLATION', 'MULTIPLE_ACCOUNTS', 'LOGIN_FAILED'];
+    
+    const logs = await AuditLog.find({
+      event: { $in: securityEvents },
+      timestamp: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
+    })
+    .populate('userId', 'firstName lastName email userID')
+    .sort({ timestamp: -1 })
+    .limit(100)
+    .lean();
+
+    const formattedLogs = logs.map(log => ({
+      id: log._id,
+      userId: log.userId ? {
+        _id: log.userId._id,
+        name: `${log.userId.firstName} ${log.userId.lastName}`,
+        email: log.userId.email,
+        userID: log.userId.userID
+      } : null,
+      ip: log.ip,
+      event: log.event,
+      details: log.details,
+      timestamp: log.timestamp,
+      formattedDate: new Date(log.timestamp).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }),
+      severity: getSeverityLevel(log.event)
+    }));
+
+    res.json({
+      success: true,
+      logs: formattedLogs,
+      count: logs.length
+    });
+  } catch (error) {
+    console.error('Error fetching security logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch security logs'
+    });
+  }
+});
+
+// Get user activity timeline
+router.get('/logs/user/:userId', authenticateAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit = 100 } = req.query;
+
+    const logs = await AuditLog.find({ userId })
+      .populate('userId', 'firstName lastName email userID')
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit))
+      .lean();
+
+    const formattedLogs = logs.map(log => ({
+      id: log._id,
+      event: log.event,
+      details: log.details,
+      timestamp: log.timestamp,
+      formattedDate: new Date(log.timestamp).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }),
+      severity: getSeverityLevel(log.event),
+      ip: log.ip
+    }));
+
+    res.json({
+      success: true,
+      logs: formattedLogs,
+      count: logs.length
+    });
+  } catch (error) {
+    console.error('Error fetching user activity logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user activity logs'
+    });
+  }
+});
+
+// Export logs (CSV format)
+router.get('/logs/export', authenticateAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, event, format = 'csv' } = req.query;
+    
+    const filter = {};
+    if (startDate) filter.timestamp = { $gte: new Date(startDate) };
+    if (endDate) filter.timestamp = { ...filter.timestamp, $lte: new Date(endDate) };
+    if (event) filter.event = event;
+
+    const logs = await AuditLog.find(filter)
+      .populate('userId', 'firstName lastName email userID')
+      .sort({ timestamp: -1 })
+      .lean();
+
+    if (format === 'csv') {
+      // Convert to CSV
+      const csvData = logs.map(log => ({
+        Timestamp: new Date(log.timestamp).toISOString(),
+        Event: log.event,
+        Severity: getSeverityLevel(log.event),
+        User: log.userId ? `${log.userId.firstName} ${log.userId.lastName}` : 'System',
+        Email: log.userId ? log.userId.email : '',
+        UserID: log.userId ? log.userId.userID : '',
+        IP: log.ip || '',
+        Details: JSON.stringify(log.details || {})
+      }));
+
+      const csvHeaders = Object.keys(csvData[0] || {});
+      const csvRows = csvData.map(row => 
+        csvHeaders.map(header => `"${(row[header] || '').toString().replace(/"/g, '""')}"`).join(',')
+      );
+
+      const csvContent = [csvHeaders.join(','), ...csvRows].join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=audit-logs.csv');
+      return res.send(csvContent);
+    } else {
+      // Return JSON
+      res.json({
+        success: true,
+        logs: logs.map(log => ({
+          ...log,
+          severity: getSeverityLevel(log.event),
+          formattedDate: new Date(log.timestamp).toISOString()
+        })),
+        count: logs.length
+      });
+    }
+  } catch (error) {
+    console.error('Error exporting logs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to export logs'
+    });
   }
 });
 
