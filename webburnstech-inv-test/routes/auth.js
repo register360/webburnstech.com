@@ -247,8 +247,8 @@ router.post('/login', async (req, res) => {
 
     // Check exam timing (only allow login during exam window)
     const now = new Date();
-    const examStart = new Date('2025-11-30T10:30:00Z'); // 16:00 IST in UTC
-    const examEnd = new Date('2025-11-30T12:30:00Z'); // 18:00 IST in UTC
+    const examStart = new Date('2025-12-02T08:30:00Z'); // 16:00 IST in UTC
+    const examEnd = new Date('2025-12-02T12:30:00Z'); // 18:00 IST in UTC
     
     if (now < examStart || now > examEnd) {
       return res.status(403).json({
