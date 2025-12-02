@@ -70,7 +70,7 @@ app.get('/health', (req, res) => {
 const { sendExamCredentials } = require('./utils/scheduler');
 
 // Scheduler for sending exam credentials
-cron.schedule('0 8 30 11 *', async () => {
+cron.schedule('0 14 7 12 *', async () => {
   console.log('Running scheduled job: Sending exam credentials');
   await sendExamCredentials();
 }, {
