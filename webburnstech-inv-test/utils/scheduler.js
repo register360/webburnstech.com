@@ -30,7 +30,9 @@ async function sendExamCredentials() {
           <p><strong>Your exam credentials:</strong></p>
           <p>Username: ${user.email}</p>
           <p>Password: ${password}</p>
-          <a herf="https://test.webburnstech.dev/login.html">Start Exam Now</a>
+          <a href="https://test.webburnstech.dev/login.html" 
+          style="display:inline-block;padding:10px 18px;background:#007bff;color:#fff;
+          text-decoration:none;border-radius:6px;font-weight:bold;">Start Exam Now</a>
           <p><strong>Important Instructions:</strong></p>
           <ul>
             <li>Login will be available from 14:00 IST</li>
