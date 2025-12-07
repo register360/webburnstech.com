@@ -7,7 +7,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
     console.log('Attempting to send email to:', to);
     
     const { data, error } = await resend.emails.send({
-      from: process.env.FROM_EMAIL || 'WebburnsTech <learn@webburnstech.dev>',
+      from: process.env.FROM_EMAIL || 'WebburnsTech <exam@test.webburnstech.dev>',
       to: [to],
       subject: subject,
       html: html,
