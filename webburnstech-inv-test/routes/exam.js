@@ -122,8 +122,8 @@ router.post('/attempts/start', authenticate, async (req, res) => {
   try {
     // Check exam timing
     const now = new Date();
-    const examStart = new Date('2025-12-07T10:30:00Z'); // 16:00 IST in UTC
-    const examEnd = new Date('2025-12-07T12:30:00Z'); // 18:00 IST in UTC
+   const examStart = new Date('2025-12-07T1:30:00Z'); // 16:00 IST in UTC
+    const examEnd = new Date('2025-12-07T3:30:00Z'); // 18:00 IST in UTC
     
     if (now < examStart || now > examEnd) {
       return res.status(403).json({
