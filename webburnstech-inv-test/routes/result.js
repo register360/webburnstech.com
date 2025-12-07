@@ -2,8 +2,8 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const User = require('./models/User');
-const Attempt = require('./models/Attempt');
+const User = require('../models/User');
+const Attempt = require('../models/Attempt');
 
 // GET /api/results - Get all candidates' results
 router.get('/', async (req, res) => {
