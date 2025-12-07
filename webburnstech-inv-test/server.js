@@ -56,11 +56,13 @@ const authRoutes = require('./routes/auth');
 const examRoutes = require('./routes/exam');
 const adminRoutes = require('./routes/admin');
 const contactRoutes = require('./routes/contact');
+const resultRoutes = require('./routes/result');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/results', resultRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
