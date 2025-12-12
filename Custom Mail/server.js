@@ -11,7 +11,7 @@ const app = express();
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Middleware
-app.use(cors());
+app.use(cors({origin:'*'}));
 app.use(express.json());
 app.use(express.static('public'));
 
