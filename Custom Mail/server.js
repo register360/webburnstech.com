@@ -248,9 +248,20 @@ app.post('/api/send-email', authenticate, async (req, res) => {
     ${body.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
   </div>
   <div class="footer">
-    <p>This email was sent by ${companyName} via Webburns AI Mailer</p>
-    <p>&copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.</p>
-    <p>&reg; 2023 WebburnsTech. All rights reserved.</p>
+  <p>This email was sent by ${companyName} via Webburns AI Mailer</p>
+  <p>
+    Please <strong>do not reply to this email<strong>. For assistance, visit
+    <a href="https://www.webburnstech.dev" target="_blank">www.webburnstech.dev</a>
+    or contact us at
+    <a href="mailto:help@webburnstech.dev">help@webburnstech.dev</a>.
+  </p>
+  <p>
+    <a href="" target="_blank">Unsubscribe</a> |
+    <a href="https://www.webburnstech.dev/privacy-policy.html" target="_blank">Privacy Policy</a> |
+    <a href="https://www.webburnstech.dev/terms-of-service.html" target="_blank">Terms of Service</a>
+  </p>
+  <p>&copy; ${new Date().getFullYear()} ${companyName}. All copy rights reserved.</p>
+  <p>&reg; 2023 WebburnsTech. All rights reserved.</p>
   </div>
 </body>
 </html>`;
