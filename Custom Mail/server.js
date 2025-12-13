@@ -248,8 +248,9 @@ app.post('/api/send-email', authenticate, async (req, res) => {
     ${body.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
   </div>
   <div class="footer">
-    <p>This email was sent by ${companyName} via AI Mailer</p>
+    <p>This email was sent by ${companyName} via Webburns AI Mailer</p>
     <p>&copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.</p>
+    <p>&reg; 2023 WebburnsTech. All rights reserved.</p>
   </div>
 </body>
 </html>`;
