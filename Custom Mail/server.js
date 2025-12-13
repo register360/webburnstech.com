@@ -84,26 +84,52 @@ const authenticate = async (req, res, next) => {
 // Register
 app.post('/api/register', async (req, res) => {
   try {
+    console.log('REGISTER BODY:', req.body);
+
     const { email, password, companyName } = req.body;
-    
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Email and password are required'
+      });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashedPassword, companyName });
+
+    const user = new User({
+      email,
+      password: hashedPassword,
+      companyName
+    });
+
     await user.save();
 
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET || 'your-secret-key',
+      { userId: user._id },
+      process.env.JWT_SECRET || 'dev-secret',
       { expiresIn: '7d' }
     );
 
-    res.json({ token, user: { id: user._id, email: user.email, companyName: user.companyName } });
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        companyName: user.companyName
+      }
+    });
+
   } catch (error) {
-    res.status(500).json({ error: 'Registration failed' });
+    console.error('REGISTER ERROR FULL:', error);
+    res.status(500).json({
+      error: 'Registration failed',
+      message: error.message
+    });
   }
 });
 
