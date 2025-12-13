@@ -360,6 +360,16 @@ app.post('/api/templates', authenticate, async (req, res) => {
   }
 });
 
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        service: 'WebburnsTech Mail API',
+        version: '2.30.21',
+        database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
+    });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
