@@ -56,10 +56,10 @@ const templateSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const User = mongoose.model('User', userSchema);
-const Contact = mongoose.model('Contact', contactSchema);
-const Email = mongoose.model('Email', emailSchema);
-const Template = mongoose.model('Template', templateSchema);
+const User = mongoose.model('MailerUser', userSchema, 'mailer_users');
+const Contact  = mongoose.model('MailerContact', contactSchema, 'mailer_contacts');
+const Email    = mongoose.model('MailerEmail', emailSchema, 'mailer_emails');
+const Template = mongoose.model('MailerTemplate', templateSchema, 'mailer_templates');
 
 // Authentication middleware
 const authenticate = async (req, res, next) => {
