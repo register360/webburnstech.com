@@ -254,7 +254,7 @@ User request:
 app.post('/api/send-email', authenticate, async (req, res) => {
   try {
     const { from, to, subject, body } = req.body;
-    const htmlBody = marked.parse(body + '\n\n' + signature);
+    const htmlBody = marked.parse(body);
     const emailData = {
       from: from || process.env.DEFAULT_FROM_EMAIL,
       to,
