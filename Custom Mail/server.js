@@ -5,7 +5,6 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Resend } = require('resend');
-const { marked } = require('marked');
 const axios = require('axios');
 
 const app = express();
@@ -57,10 +56,10 @@ const templateSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const User = mongoose.model('MailerUser', userSchema, 'mailer_users');
-const Contact  = mongoose.model('MailerContact', contactSchema, 'mailer_contacts');
-const Email    = mongoose.model('MailerEmail', emailSchema, 'mailer_emails');
-const Template = mongoose.model('MailerTemplate', templateSchema, 'mailer_templates');
+const User = mongoose.model('User', userSchema);
+const Contact = mongoose.model('Contact', contactSchema);
+const Email = mongoose.model('Email', emailSchema);
+const Template = mongoose.model('Template', templateSchema);
 
 // Authentication middleware
 const authenticate = async (req, res, next) => {
@@ -85,52 +84,26 @@ const authenticate = async (req, res, next) => {
 // Register
 app.post('/api/register', async (req, res) => {
   try {
-    console.log('REGISTER BODY:', req.body);
-
     const { email, password, companyName } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        error: 'Email and password are required'
-      });
-    }
-
+    
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = new User({
-      email,
-      password: hashedPassword,
-      companyName
-    });
-
+    const user = new User({ email, password: hashedPassword, companyName });
     await user.save();
 
     const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || 'dev-secret',
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
     );
 
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        companyName: user.companyName
-      }
-    });
-
+    res.json({ token, user: { id: user._id, email: user.email, companyName: user.companyName } });
   } catch (error) {
-    console.error('REGISTER ERROR FULL:', error);
-    res.status(500).json({
-      error: 'Registration failed',
-      message: error.message
-    });
+    res.status(500).json({ error: 'Registration failed' });
   }
 });
 
@@ -170,6 +143,7 @@ app.get('/api/user', authenticate, async (req, res) => {
 app.post('/api/generate-email', authenticate, async (req, res) => {
   try {
     const { prompt } = req.body;
+    const companyName = req.user.companyName || 'WebburnsTech';
     
     const response = await axios.post(
       'https://api.mistral.ai/v1/chat/completions',
@@ -177,33 +151,30 @@ app.post('/api/generate-email', authenticate, async (req, res) => {
         model: 'mistral-small-latest',
         messages: [
           {
+            role: 'system',
+            content: `You are a professional email writer for ${companyName}. Write clear, concise, and professional business emails. Always maintain a friendly yet professional tone. Structure emails with proper greeting, well-organized body paragraphs, and appropriate closing.`
+          },
+          {
             role: 'user',
-            content: `
-You are an API that returns ONLY valid JSON.
-Do NOT wrap the response in markdown.
-Do NOT add explanations or extra text.
+            content: `Write a professional business email for the following request: "${prompt}"
 
-The JSON must be strictly parseable.
-
-Rules:
-- Markdown IS ALLOWED inside "subject", "body", and "signature"
-- Do NOT use \`\`\` or any code blocks
-- Do NOT add text outside JSON
-
-Return this exact structure:
-
+Provide the response in this exact JSON format:
 {
-  "subject": "Email subject (markdown allowed)",
-  "body": "Email body (markdown allowed: headings, bold, lists)",
-  "signature": "Signature (markdown allowed)"
+  "subject": "Clear and specific subject line",
+  "body": "Complete email body with proper paragraphs. Start with a professional greeting like 'Dear [Recipient]' or 'Hello'. Include 2-3 well-structured paragraphs. End with a call to action if appropriate.",
+  "signature": "Best regards,\n${companyName}"
 }
 
-User request:
-"${prompt}"`
+Important guidelines:
+- Use professional language throughout
+- Keep paragraphs concise and focused
+- Include specific details from the request
+- Maintain a warm but professional tone
+- Make it ready to send without placeholders (except [Recipient] for the greeting)`
           }
         ],
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 1200
       },
       {
         headers: {
@@ -214,37 +185,34 @@ User request:
     );
 
     const aiResponse = response.data.choices[0].message.content;
-    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-
-    if (!jsonMatch) {
-       throw new Error('No JSON found');
-    }
-
-    const emailData = JSON.parse(jsonMatch[0]);
     
     // Try to parse JSON from the response
     try {
-      const emailData = JSON.parse(aiResponse);
+      // Extract JSON from possible markdown code blocks
+      const jsonMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, aiResponse];
+      const jsonStr = jsonMatch[1] || aiResponse;
+      const emailData = JSON.parse(jsonStr.trim());
       res.json(emailData);
     } catch (parseError) {
       // If JSON parsing fails, extract subject and body from text
-      const subjectMatch = aiResponse.match(/Subject: (.+?)(\n|$)/i);
-      const bodyMatch = aiResponse.match(/(Body:|Content:)([\s\S]*)/i);
+      const subjectMatch = aiResponse.match(/Subject[:\s]+([^\n]+)/i);
+      const bodyMatch = aiResponse.match(/(?:Body|Content)[:\s]+([\s\S]*?)(?:Signature|Best regards|Sincerely|$)/i);
       
       res.json({
-        subject: subjectMatch ? subjectMatch[1].trim() : 'Generated Email',
-        body: bodyMatch ? bodyMatch[2].trim() : aiResponse,
-        signature: "Best regards,\n" + (req.user.companyName || 'Your Team')
+        subject: subjectMatch ? subjectMatch[1].trim() : `Regarding: ${prompt.substring(0, 50)}`,
+        body: bodyMatch ? bodyMatch[1].trim() : `Dear Recipient,\n\nThank you for reaching out. ${prompt}\n\nPlease don't hesitate to contact us if you have any questions or require further information.`,
+        signature: `Best regards,\n${companyName}`
       });
     }
   } catch (error) {
     console.error('AI Generation Error:', error.response?.data || error.message);
+    const companyName = req.user.companyName || 'WebburnsTech';
     res.status(500).json({ 
       error: 'Failed to generate email',
       fallback: {
-        subject: `Email about ${req.body.prompt}`,
-        body: `Dear Recipient,\n\nThis is regarding: ${req.body.prompt}\n\nPlease let me know if you have any questions.`,
-        signature: "Best regards,\n" + (req.user.companyName || 'Your Team')
+        subject: `Regarding: ${req.body.prompt.substring(0, 50)}`,
+        body: `Dear Recipient,\n\nThank you for your time. I am writing to you regarding: ${req.body.prompt}\n\nPlease let me know if you have any questions or would like to discuss this further. I look forward to hearing from you.`,
+        signature: `Best regards,\n${companyName}`
       }
     });
   }
@@ -254,7 +222,38 @@ User request:
 app.post('/api/send-email', authenticate, async (req, res) => {
   try {
     const { from, to, subject, body } = req.body;
-    const htmlBody = marked.parse(body);
+    const companyName = req.user.companyName || 'WebburnsTech';
+    
+    // Create professional HTML email template
+    const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333333; max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { border-bottom: 2px solid #00ff88; padding-bottom: 20px; margin-bottom: 20px; }
+    .logo { font-size: 24px; font-weight: bold; color: #000000; }
+    .content { padding: 20px 0; }
+    .content p { margin: 0 0 16px 0; }
+    .footer { border-top: 1px solid #eeeeee; padding-top: 20px; margin-top: 30px; font-size: 12px; color: #888888; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">${companyName}</div>
+  </div>
+  <div class="content">
+    ${body.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
+  </div>
+  <div class="footer">
+    <p>This email was sent by ${companyName} via AI Mailer</p>
+    <p>&copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.</p>
+  </div>
+</body>
+</html>`;
+
     const emailData = {
       from: from || process.env.DEFAULT_FROM_EMAIL,
       to,
