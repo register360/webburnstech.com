@@ -232,36 +232,42 @@ app.post('/api/send-email', authenticate, async (req, res) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333333; max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { border-bottom: 2px solid #00ff88; padding-bottom: 20px; margin-bottom: 20px; }
-    .logo { font-size: 24px; font-weight: bold; color: #000000; }
-    .content { padding: 20px 0; }
-    .content p { margin: 0 0 16px 0; }
-    .footer { border-top: 1px solid #eeeeee; padding-top: 20px; margin-top: 30px; font-size: 12px; color: #888888; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }
+    .email-container { background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); padding: 24px 30px; }
+    .logo { font-size: 22px; font-weight: bold; color: #00ff88; letter-spacing: 0.5px; }
+    .content { padding: 30px; background-color: #ffffff; }
+    .content p { margin: 0 0 16px 0; color: #333333; }
+    .footer { background-color: #1a1a1a; padding: 28px 30px; text-align: center; }
+    .footer p { margin: 0 0 12px 0; font-size: 12px; color: #999999; line-height: 1.6; }
+    .footer p:last-child { margin-bottom: 0; }
+    .footer a { color: #00ff88; text-decoration: none; }
+    .footer-links { margin: 16px 0; padding: 12px 0; border-top: 1px solid #333333; border-bottom: 1px solid #333333; }
+    .footer-links a { margin: 0 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .footer-brand { font-size: 11px; color: #666666; margin-top: 8px; }
+    .divider { width: 40px; height: 3px; background: #00ff88; margin: 0 auto 16px; border-radius: 2px; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="logo">${companyName}</div>
-  </div>
-  <div class="content">
-    ${body.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
-  </div>
-  <div class="footer">
-  <p>This email was sent by ${companyName} via Webburns AI Mailer</p>
-  <p>
-    Please <strong>do not reply to this email<strong>. For assistance, visit
-    <a href="https://www.webburnstech.dev" target="_blank">www.webburnstech.dev</a>
-    or contact us at
-    <a href="mailto:help@webburnstech.dev">help@webburnstech.dev</a>.
-  </p>
-  <p>
-    <a href="" target="_blank">Unsubscribe</a> |
-    <a href="https://www.webburnstech.dev/privacy-policy.html" target="_blank">Privacy Policy</a> |
-    <a href="https://www.webburnstech.dev/terms-of-service.html" target="_blank">Terms of Service</a>
-  </p>
-  <p>&copy; ${new Date().getFullYear()} ${companyName}. All copy rights reserved.</p>
-  <p>&reg; 2023 WebburnsTech. All rights reserved.</p>
+  <div class="email-container">
+    <div class="header">
+      <div class="logo">${companyName}</div>
+    </div>
+    <div class="content">
+      ${bodyHtml}
+    </div>
+    <div class="footer">
+      <div class="divider"></div>
+      <p>This email was sent by <strong>${companyName}</strong> via Webburns AI Mailer</p>
+      <p>Please <strong>do not reply</strong> to this email. For assistance, contact us at <a href="mailto:help@webburnstech.dev">help@webburnstech.dev</a></p>
+      <div class="footer-links">
+        <a href="mailto:unsubscribe@webburnstech.dev?subject=Unsubscribe%20Request&body=Please%20unsubscribe%20me%20from%20your%20mailing%20list.">Unsubscribe</a>
+        <a href="https://www.webburnstech.dev/privacy-policy.html" target="_blank">Privacy Policy</a>
+        <a href="https://www.webburnstech.dev/terms-of-service.html" target="_blank">Terms of Service</a>
+        <a href="https://www.webburnstech.dev" target="_blank">www.webburnstech.dev</a>
+      </div>
+      <p class="footer-brand">2025 &copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.<br>2023 &reg; WebburnsTech</p>
+    </div>
   </div>
 </body>
 </html>`;
