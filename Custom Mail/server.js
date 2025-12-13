@@ -254,7 +254,7 @@ app.post('/api/send-email', authenticate, async (req, res) => {
       <div class="logo">${companyName}</div>
     </div>
     <div class="content">
-      ${bodyHtml}
+      ${body.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
     </div>
     <div class="footer">
       <div class="divider"></div>
