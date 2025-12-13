@@ -5,6 +5,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Resend } = require('resend');
+const { marked } = require('marked');
 const axios = require('axios');
 
 const app = express();
@@ -177,14 +178,28 @@ app.post('/api/generate-email', authenticate, async (req, res) => {
         messages: [
           {
             role: 'user',
-            content: `Generate a professional email based on this request: "${prompt}". 
-            Please provide in this exact JSON format:
-            {
-              "subject": "email subject here",
-              "body": "complete email body here with proper formatting",
-              "signature": "Best regards,\n[Your Name/Company]"
-            }
-            Make sure the email is professional, well-structured, and ready to send.`
+            content: `
+You are an API that returns ONLY valid JSON.
+Do NOT wrap the response in markdown.
+Do NOT add explanations or extra text.
+
+The JSON must be strictly parseable.
+
+Rules:
+- Markdown IS ALLOWED inside "subject", "body", and "signature"
+- Do NOT use \`\`\` or any code blocks
+- Do NOT add text outside JSON
+
+Return this exact structure:
+
+{
+  "subject": "Email subject (markdown allowed)",
+  "body": "Email body (markdown allowed: headings, bold, lists)",
+  "signature": "Signature (markdown allowed)"
+}
+
+User request:
+"${prompt}"`
           }
         ],
         temperature: 0.7,
@@ -199,6 +214,13 @@ app.post('/api/generate-email', authenticate, async (req, res) => {
     );
 
     const aiResponse = response.data.choices[0].message.content;
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+
+    if (!jsonMatch) {
+       throw new Error('No JSON found');
+    }
+
+    const emailData = JSON.parse(jsonMatch[0]);
     
     // Try to parse JSON from the response
     try {
@@ -232,12 +254,12 @@ app.post('/api/generate-email', authenticate, async (req, res) => {
 app.post('/api/send-email', authenticate, async (req, res) => {
   try {
     const { from, to, subject, body } = req.body;
-    
+    const htmlBody = marked.parse(body + '\n\n' + signature);
     const emailData = {
       from: from || process.env.DEFAULT_FROM_EMAIL,
       to,
       subject,
-      html: body.replace(/\n/g, '<br>')
+      html: htmlBody
     };
 
     const response = await resend.emails.send(emailData);
