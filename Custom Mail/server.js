@@ -266,37 +266,55 @@ app.post('/api/send-email', authenticate, async (req, res) => {
         <a href="https://www.webburnstech.dev/terms-of-service.html" target="_blank">Terms of Service</a>
         <a href="https://www.webburnstech.dev" target="_blank">website</a>
       </div>
-      <p class="footer-brand"> ${new Date().getFullYear()} ${companyName} &copy;.All rights reserved.<br>2023 &reg; WebburnsTech</p>
+      <p class="footer-brand">${new Date().getFullYear()} ${companyName} &copy;.All rights reserved.<br>2023 &reg; WebburnsTech</p>
     </div>
   </div>
 </body>
 </html>`;
 
-    const emailData = {
-      from: from || process.env.DEFAULT_FROM_EMAIL,
-      to,
-      subject,
-      html: htmlBody
-    };
-
-    console.log('Attempting to send email to:', to);
-    const response = await resend.emails.send(emailData);
+    // Send individual emails to each recipient (Resend works better this way)
+    const recipients = Array.isArray(to) ? to : [to];
+    const results = [];
+    const failed = [];
     
-    // Save to database
+    console.log('Attempting to send email to:', recipients);
+    
+    for (const recipient of recipients) {
+      try {
+        const emailData = {
+          from: from || process.env.DEFAULT_FROM_EMAIL,
+          to: recipient,
+          subject,
+          html: htmlBody
+        };
+        
+        const response = await resend.emails.send(emailData);
+        console.log(`Email sent to ${recipient}:`, response.data);
+        results.push({ email: recipient, messageId: response.data.id, status: 'sent' });
+      } catch (err) {
+        console.error(`Failed to send to ${recipient}:`, err.message);
+        failed.push({ email: recipient, error: err.message });
+      }
+    }
+    
+    // Save to database (store all recipients)
     const email = new Email({
       userId: req.user._id,
-      from: emailData.from,
-      to,
+      from: from || process.env.DEFAULT_FROM_EMAIL,
+      to: recipients,
       subject,
       body,
-      status: 'sent'
+      status: failed.length === 0 ? 'sent' : (results.length === 0 ? 'failed' : 'partial')
     });
     await email.save();
 
-    console.log('Email sent successfully:', response.data);
+    console.log(`Email sending complete: ${results.length} sent, ${failed.length} failed`);
     res.json({ 
       success: true, 
-      messageId: response.data.id,
+      sent: results.length,
+      failed: failed.length,
+      results,
+      failedRecipients: failed,
       emailId: email._id 
     });
   } catch (error) {
