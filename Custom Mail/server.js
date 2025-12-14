@@ -279,6 +279,7 @@ app.post('/api/send-email', authenticate, async (req, res) => {
       html: htmlBody
     };
 
+    console.log('Attempting to send email to:', to);
     const response = await resend.emails.send(emailData);
     
     // Save to database
@@ -292,13 +293,14 @@ app.post('/api/send-email', authenticate, async (req, res) => {
     });
     await email.save();
 
+    console.log('Email sent successfully:', response.data);
     res.json({ 
       success: true, 
       messageId: response.data.id,
       emailId: email._id 
     });
   } catch (error) {
-    console.error('Send Email Error:', error);
+    console.error('Email sending failed:', error);
     res.status(500).json({ error: 'Failed to send email' });
   }
 });
