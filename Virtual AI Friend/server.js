@@ -75,7 +75,7 @@ app.post('/api/virtual-friend', async (req, res) => {
     
     // Call Mistral API
     const response = await axios.post(MISTRAL_API_URL, {
-      model: 'mistral-medium-2505',
+      model: 'mistral-small-latest',
       messages: messages,
       max_tokens: 500,
       temperature: 0.7
