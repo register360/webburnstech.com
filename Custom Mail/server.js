@@ -266,7 +266,7 @@ app.post('/api/send-email', authenticate, async (req, res) => {
         <a href="https://www.webburnstech.dev/terms-of-service.html" target="_blank">Terms of Service</a>
         <a href="https://www.webburnstech.dev" target="_blank">website</a>
       </div>
-      <p class="footer-brand">${new Date().getFullYear()} ${companyName} &copy;.All rights reserved.<br>2023 &reg; WebburnsTech</p>
+      <p class="footer-brand">&copy; ${new Date().getFullYear()} ${companyName}.All rights reserved.<br>2023 &reg; WebburnsTech</p>
     </div>
   </div>
 </body>
@@ -394,6 +394,31 @@ app.post('/api/templates', authenticate, async (req, res) => {
     res.json(template);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create template' });
+  }
+});
+
+app.put('/api/templates/:id', authenticate, async (req, res) => {
+  try {
+    const template = await Template.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      req.body,
+      { new: true }
+    );
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    res.json(template);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update template' });
+  }
+});
+
+app.delete('/api/templates/:id', authenticate, async (req, res) => {
+  try {
+    await Template.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete template' });
   }
 });
 
