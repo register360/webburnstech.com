@@ -264,9 +264,9 @@ app.post('/api/send-email', authenticate, async (req, res) => {
         <a href="mailto:unsubscribe@webburnstech.dev?subject=Unsubscribe%20Request&body=Please%20unsubscribe%20me%20from%20your%20mailing%20list.">Unsubscribe</a>
         <a href="https://www.webburnstech.dev/privacy-policy.html" target="_blank">Privacy Policy</a>
         <a href="https://www.webburnstech.dev/terms-of-service.html" target="_blank">Terms of Service</a>
-        <a href="https://www.webburnstech.dev" target="_blank">www.webburnstech.dev</a>
+        <a href="https://www.webburnstech.dev" target="_blank">website</a>
       </div>
-      <p class="footer-brand">2025 &copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.<br>2023 &reg; WebburnsTech</p>
+      <p class="footer-brand"> ${new Date().getFullYear()} ${companyName} &copy;.All rights reserved.<br>2023 &reg; WebburnsTech</p>
     </div>
   </div>
 </body>
