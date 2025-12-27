@@ -29,67 +29,98 @@ app.post('/submit-form', async (req, res) => {
       subject: `📧 New Contact: ${subject || 'General Inquiry'}`,
       html: `
         <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>New Contact Form Submission</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-          <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
-            <!-- Header -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; color: white;">
-              <h1 style="margin: 0; font-size: 32px; font-weight: 700;">New Contact Form Submission</h1>
-              <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Website Contact Form</p>
-            </div>
-            
-            <!-- Content -->
-            <div style="padding: 40px 30px;">
-              <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-                <h2 style="color: white; margin: 0; font-size: 24px;">🚀 New Lead Alert</h2>
-              </div>
-              
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea;">
-                  <h3 style="margin: 0 0 10px 0; color: #333; font-size: 14px; text-transform: uppercase;">Name</h3>
-                  <p style="margin: 0; color: #667eea; font-size: 18px; font-weight: 600;">${name}</p>
-                </div>
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #764ba2;">
-                  <h3 style="margin: 0 0 10px 0; color: #333; font-size: 14px; text-transform: uppercase;">Email</h3>
-                  <p style="margin: 0; color: #764ba2; font-size: 16px; font-weight: 600;">
-                    <a href="mailto:${email}" style="color: #764ba2; text-decoration: none;">${email}</a>
-                  </p>
-                </div>
-              </div>
-              
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>New Contact | WebburnsTech</title>
+</head>
+<body style="margin:0; padding:0; background:#0b0b0b; font-family: Arial, Helvetica, sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0b; padding:30px 0;">
+    <tr>
+      <td align="center">
+
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#121212; border:1px solid #1f1f1f; box-shadow:0 0 40px rgba(0,255,255,0.05);">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="padding:30px; border-bottom:1px solid #1f1f1f;">
+              <h1 style="margin:0; color:#e5e5e5; font-size:26px; letter-spacing:1px;">
+                NEW CONTACT RECEIVED
+              </h1>
+              <p style="margin:8px 0 0; color:#7a7a7a; font-size:13px;">
+                WebburnsTech Contact System
+              </p>
+            </td>
+          </tr>
+
+          <!-- CONTENT -->
+          <tr>
+            <td style="padding:30px;">
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:25px;">
+                <tr>
+                  <td style="color:#8be9fd; font-size:12px; letter-spacing:1px;">NAME</td>
+                </tr>
+                <tr>
+                  <td style="color:#ffffff; font-size:18px; padding-top:4px;">${name}</td>
+                </tr>
+              </table>
+
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:25px;">
+                <tr>
+                  <td style="color:#8be9fd; font-size:12px; letter-spacing:1px;">EMAIL</td>
+                </tr>
+                <tr>
+                  <td style="color:#cfd8dc; font-size:16px; padding-top:4px;">
+                    <a href="mailto:${email}" style="color:#8be9fd; text-decoration:none;">${email}</a>
+                  </td>
+                </tr>
+              </table>
+
               ${subject ? `
-              <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f093fb;">
-                <h3 style="margin: 0 0 10px 0; color: #333; font-size: 14px; text-transform: uppercase;">Subject</h3>
-                <p style="margin: 0; color: #f5576c; font-size: 16px; font-weight: 600;">${subject}</p>
-              </div>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:25px;">
+                <tr>
+                  <td style="color:#8be9fd; font-size:12px; letter-spacing:1px;">SUBJECT</td>
+                </tr>
+                <tr>
+                  <td style="color:#ffffff; font-size:16px; padding-top:4px;">${subject}</td>
+                </tr>
+              </table>
               ` : ''}
-              
-              <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border: 1px solid #ffeaa7;">
-                <h3 style="margin: 0 0 15px 0; color: #856404; font-size: 16px;">📝 Message Content</h3>
-                <div style="background: white; padding: 20px; border-radius: 6px; border-left: 4px solid #fbc02d;">
-                  <p style="margin: 0; color: #555; line-height: 1.6; white-space: pre-line;">${message}</p>
-                </div>
-              </div>
-              
-              <div style="margin-top: 30px; padding: 20px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 8px; text-align: center;">
-                <p style="margin: 0; color: white; font-weight: 600;">⏰ Please respond within 24 hours</p>
-              </div>
-            </div>
-            
-            <!-- Footer -->
-            <div style="background: #2c3e50; padding: 30px; text-align: center; color: white;">
-              <p style="margin: 0 0 10px 0; font-size: 14px;">WebburnsTech Contact Management System</p>
-              <p style="margin: 0; font-size: 12px; opacity: 0.8;">Automated Notification • ${new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
+
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="color:#8be9fd; font-size:12px; letter-spacing:1px;">MESSAGE</td>
+                </tr>
+                <tr>
+                  <td style="color:#d0d0d0; font-size:15px; line-height:1.7; padding-top:10px; background:#0e0e0e; padding:20px; border-left:3px solid #8be9fd;">
+                    ${message}
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:25px; border-top:1px solid #1f1f1f; text-align:center;">
+              <p style="margin:0; font-size:12px; color:#6b6b6b;">
+                WebburnsTech • Automated Internal Notification<br>
+                ${new Date().toLocaleString()}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`
     });
 
     // 2. Send confirmation email to user
@@ -100,102 +131,69 @@ app.post('/submit-form', async (req, res) => {
       subject: 'Thank You for Contacting WebburnsTech!',
       html: `
         <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Thank You - WebburnsTech</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
-          <div style="max-width: 600px; margin: 40px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.15);">
-            <!-- Header with Gradient -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 50px 30px; text-align: center; color: white; position: relative;">
-              <div style="position: absolute; top: 20px; right: 30px; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;">AUTO-CONFIRMATION</div>
-              <h1 style="margin: 0; font-size: 36px; font-weight: 300; letter-spacing: -0.5px;">Thank You, ${name}!</h1>
-              <p style="margin: 15px 0 0 0; font-size: 18px; opacity: 0.9;">We've received your message</p>
-            </div>
-            
-            <!-- Main Content -->
-            <div style="padding: 50px 40px;">
-              <!-- Confirmation Icon -->
-              <div style="text-align: center; margin-bottom: 30px;">
-                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); width: 80px; height: 80px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);">
-                  <span style="color: white; font-size: 36px;">✓</span>
-                </div>
-              </div>
-              
-              <!-- Message -->
-              <div style="text-align: center; margin-bottom: 40px;">
-                <h2 style="color: #2c3e50; margin: 0 0 15px 0; font-size: 28px; font-weight: 600;">Message Received Successfully</h2>
-                <p style="color: #7f8c8d; font-size: 16px; line-height: 1.6; margin: 0;">
-                  Thank you for reaching out to WebburnsTech. We appreciate you taking the time to contact us and will respond to your inquiry shortly.
-                </p>
-              </div>
-              
-              <!-- Submission Details -->
-              <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 30px; border-radius: 12px; margin-bottom: 30px;">
-                <h3 style="color: white; margin: 0 0 20px 0; font-size: 20px; text-align: center;">📋 Submission Summary</h3>
-                <div style="background: rgba(255,255,255,0.2); padding: 20px; border-radius: 8px;">
-                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
-                    <strong style="color: white; text-align: right;">Name:</strong>
-                    <span style="color: white;">${name}</span>
-                  </div>
-                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
-                    <strong style="color: white; text-align: right;">Email:</strong>
-                    <span style="color: white;">${email}</span>
-                  </div>
-                  ${subject ? `
-                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
-                    <strong style="color: white; text-align: right;">Subject:</strong>
-                    <span style="color: white;">${subject}</span>
-                  </div>
-                  ` : ''}
-                  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
-                    <strong style="color: white; text-align: right;">Submitted:</strong>
-                    <span style="color: white;">${new Date().toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Next Steps -->
-              <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; border-left: 5px solid #4facfe;">
-                <h4 style="color: #2c3e50; margin: 0 0 15px 0; font-size: 18px;">🔄 What Happens Next?</h4>
-                <ul style="color: #7f8c8d; margin: 0; padding-left: 20px; line-height: 1.8;">
-                  <li>Our team will review your message within 24 hours</li>
-                  <li>You'll receive a personalized response from our experts</li>
-                  <li>We'll work with you to understand and address your needs</li>
-                </ul>
-              </div>
-              
-              <!-- Urgent Notice -->
-              <div style="background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%); padding: 20px; border-radius: 8px; margin: 30px 0; text-align: center;">
-                <p style="margin: 0; color: #d63031; font-weight: 600; font-size: 14px;">
-                  ⚡ For urgent inquiries, please email us directly at 
-                  <a href="mailto:support@webburnstech.dev" style="color: #d63031; text-decoration: underline;">support@webburnstech.dev</a>
-                </p>
-              </div>
-            </div>
-            
-            <!-- Footer -->
-            <div style="background: #2c3e50; padding: 40px 30px; text-align: center; color: white;">
-              <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 20px; font-weight: 300;">WebburnsTech</h3>
-                <p style="margin: 0; opacity: 0.8; font-size: 14px;">AI Innovation & Technology Solutions</p>
-              </div>
-              <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 20px;">
-                <a href="https://webburnstech.dev" style="color: #4facfe; text-decoration: none; font-size: 14px;">Website</a>
-                <a href="mailto:contact@webburnstech.dev" style="color: #4facfe; text-decoration: none; font-size: 14px;">Contact</a>
-                <a href="https://webburnstech.dev/support" style="color: #4facfe; text-decoration: none; font-size: 14px;">Support</a>
-              </div>
-              <p style="margin: 0; font-size: 12px; opacity: 0.6;">
-                This is an automated confirmation email. Please do not reply to this message.<br>
-                &copy; ${new Date().getFullYear()} WebburnsTech. All rights reserved.
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Message Received | WebburnsTech</title>
+</head>
+<body style="margin:0; padding:0; background:#0b0b0b; font-family: Arial, Helvetica, sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0b0b; padding:40px 0;">
+    <tr>
+      <td align="center">
+
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#121212; border:1px solid #1f1f1f; box-shadow:0 0 50px rgba(0,255,255,0.06);">
+
+          <!-- HEADER -->
+          <tr>
+            <td style="padding:35px; border-bottom:1px solid #1f1f1f;">
+              <h1 style="margin:0; color:#ffffff; font-size:28px; font-weight:300;">
+                MESSAGE RECEIVED
+              </h1>
+              <p style="margin-top:10px; color:#8be9fd; font-size:14px;">
+                Thank you, ${name}
               </p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
+            </td>
+          </tr>
+
+          <!-- BODY -->
+          <tr>
+            <td style="padding:35px; color:#d0d0d0; font-size:16px; line-height:1.7;">
+              We’ve successfully received your message at <strong style="color:#ffffff;">WebburnsTech</strong>.
+
+              <div style="margin:25px 0; padding:20px; background:#0e0e0e; border-left:3px solid #8be9fd;">
+                Our technical team will review your inquiry and respond within <strong>24 hours</strong>.
+              </div>
+
+              If your request is urgent, contact us directly at:
+              <br><br>
+              <a href="mailto:support@webburnstech.dev" style="color:#8be9fd; text-decoration:none;">
+                support@webburnstech.dev
+              </a>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="padding:30px; border-top:1px solid #1f1f1f; text-align:center;">
+              <p style="margin:0; font-size:13px; color:#7a7a7a;">
+                WebburnsTech — Engineering the Future
+              </p>
+              <p style="margin-top:10px; font-size:11px; color:#555;">
+                This is an automated email. Please do not reply.<br>
+                © ${new Date().getFullYear()} WebburnsTech. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`
     });
 
     // Check if both emails were sent successfully
