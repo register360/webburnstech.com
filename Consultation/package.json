@@ -13,7 +13,7 @@
     "mongoose": "^7.5.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "resend": "^2.2.0",
+    "resend": "^2.0.0",
     "node-cron": "^3.0.2",
     "express-rate-limit": "^6.10.0",
     "helmet": "^7.0.0"
