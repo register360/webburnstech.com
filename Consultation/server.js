@@ -115,7 +115,7 @@ const Booking = mongoose.model('Booking', bookingSchema);
 // Email Templates
 const emailTemplates = {
   confirmation: {
-    subject: 'Consultation Booking Confirmation - Webburns Tech',
+    subject: 'Consultation Booking Confirmation - WebburnsTech',
     html: (booking) => `
       <!DOCTYPE html>
       <html>
@@ -134,11 +134,11 @@ const emailTemplates = {
         <div class="container">
           <div class="header">
             <h1>Consultation Confirmed!</h1>
-            <p>Webburns Tech</p>
+            <p>WebburnsTech</p>
           </div>
           <div class="content">
             <p>Dear ${booking.name},</p>
-            <p>Thank you for booking a consultation with Webburns Tech. Your session has been confirmed.</p>
+            <p>Thank you for booking a consultation with WebburnsTech. Your session has been confirmed.</p>
             
             <div class="details">
               <h3>Booking Details:</h3>
@@ -156,7 +156,7 @@ const emailTemplates = {
               ${booking.company ? `<p><strong>Company:</strong> ${booking.company}</p>` : ''}
             </div>
             
-            <p><strong>Meeting Link:</strong> <a href="https://meet.google.com/your-meeting-id">Join Google Meet</a></p>
+            <p><strong>Meeting Link:</strong> <a href="https://meet.google.com/jyt-eksb-xmu">Join Google Meet</a></p>
             
             <p><strong>Preparation:</strong></p>
             <ul>
@@ -168,7 +168,7 @@ const emailTemplates = {
             <p>Need to reschedule? Contact us at <a href="mailto:consultation@webburnstech.dev">consultation@webburnstech.dev</a></p>
             
             <div class="footer">
-              <p>Best regards,<br>The Webburns Tech Team</p>
+              <p>Best regards,<br>The WebburnsTech Team</p>
               <p><a href="https://webburnstech.dev">webburnstech.dev</a></p>
             </div>
           </div>
@@ -179,7 +179,7 @@ const emailTemplates = {
   },
   
   reminder: {
-    subject: 'Reminder: Your Consultation with Webburns Tech',
+    subject: 'Reminder: Your Consultation with WebburnsTech',
     html: (booking) => `
       <!DOCTYPE html>
       <html>
@@ -198,11 +198,11 @@ const emailTemplates = {
         <div class="container">
           <div class="header">
             <h1>Consultation Reminder</h1>
-            <p>Webburns Tech</p>
+            <p>WebburnsTech</p>
           </div>
           <div class="content">
             <p>Dear ${booking.name},</p>
-            <p>This is a friendly reminder about your upcoming consultation with Webburns Tech.</p>
+            <p>This is a friendly reminder about your upcoming consultation with WebburnsTech.</p>
             
             <div class="details">
               <h3>Session Details:</h3>
@@ -215,12 +215,12 @@ const emailTemplates = {
               <p><strong>Type:</strong> ${booking.consultationType === 'free' ? 'Free Strategy Call' : booking.consultationType === 'paid' ? 'Paid Consultation' : 'Enterprise Planning'}</p>
             </div>
             
-            <p><strong>Meeting Link:</strong> <a href="https://meet.google.com/your-meeting-id">Join Google Meet</a></p>
+            <p><strong>Meeting Link:</strong> <a href="https://meet.google.com/jyt-eksb-xmu>Join Google Meet</a></p>
             
             <p>Looking forward to our conversation!</p>
             
             <div class="footer">
-              <p>Best regards,<br>The Webburns Tech Team</p>
+              <p>Best regards,<br>The WebburnsTech Team</p>
               <p><a href="https://webburnstech.dev">webburnstech.dev</a></p>
             </div>
           </div>
@@ -249,7 +249,7 @@ const emailTemplates = {
         <div class="container">
           <div class="header">
             <h1>New Booking Alert</h1>
-            <p>Webburns Tech Consultation System</p>
+            <p>WebburnsTech Consultation System</p>
           </div>
           <div class="content">
             <h2>A new consultation has been booked:</h2>
@@ -286,7 +286,7 @@ const emailTemplates = {
             <p>Please prepare for this consultation and add it to your calendar.</p>
             
             <div class="footer">
-              <p>This is an automated notification from Webburns Tech Booking System</p>
+              <p>This is an automated notification from WebburnsTech Booking System</p>
             </div>
           </div>
         </div>
@@ -300,7 +300,7 @@ const emailTemplates = {
 async function sendEmail(to, subject, html) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Webburns Tech <notifications@webburnstech.dev>',
+      from: 'WebburnsTech <notifications@webburnstech.dev>',
       to: Array.isArray(to) ? to : [to],
       subject: subject,
       html: html,
