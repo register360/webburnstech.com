@@ -391,18 +391,11 @@ app.post('/api/book-consultation', async (req, res) => {
 
     // Send notification to admin
     const adminEmailSent = await sendEmail(
-      'consultation@webburnstech.dev',
+      'webburnstech@gmail.com',
       emailTemplates.adminNotification.subject,
       emailTemplates.adminNotification.html(booking)
     );
-
-    // Send notification to reminder email as well
-    await sendEmail(
-      'reminder@webburnstech.dev',
-      emailTemplates.adminNotification.subject,
-      emailTemplates.adminNotification.html(booking)
-    );
-
+    
     // Update booking with email status
     booking.confirmationSent = clientEmailSent;
     await booking.save();
@@ -551,7 +544,7 @@ async function sendReminderEmails() {
 
       // Send reminder to admin team
       const adminReminderSent = await sendEmail(
-        ['consultation@webburnstech.dev', 'reminder@webburnstech.dev'],
+        'webburnstech@gmail.com',
         `Reminder: Consultation with ${booking.name} in 30 minutes`,
         emailTemplates.adminNotification.html(booking)
       );
