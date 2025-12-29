@@ -215,7 +215,7 @@ const emailTemplates = {
               <p><strong>Type:</strong> ${booking.consultationType === 'free' ? 'Free Strategy Call' : booking.consultationType === 'paid' ? 'Paid Consultation' : 'Enterprise Planning'}</p>
             </div>
             
-            <p><strong>Meeting Link:</strong> <a href="https://meet.google.com/jyt-eksb-xmu>Join Google Meet</a></p>
+            <p><strong>Meeting Link:</strong> <a href="https://meet.google.com/jyt-eksb-xmu">Join Google Meet</a></p>
             
             <p>Looking forward to our conversation!</p>
             
