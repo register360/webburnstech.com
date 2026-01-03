@@ -175,6 +175,14 @@ app.post('/api/ai-assistant', async (req, res) => {
   }
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'WebburnsTech Site Assistant',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
