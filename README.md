@@ -634,7 +634,7 @@ Special thanks to:
 Hyderabad, Telangana 500074  
 India
 
-📧 **Email**: webburnstech@gmail.com  
+📧 **Email**: contact@webburnstech.dev  
 🌐 **Website**: [www.webburnstech.dev](http://www.webburnstech.dev/)  
 💼 **GitHub**: [@register360](https://github.com/register360)
 
@@ -643,9 +643,9 @@ India
 ### Follow Us
 
 [![Website](https://img.shields.io/badge/Website-6c63ff?style=for-the-badge&logo=google-chrome&logoColor=white)](https://www.webburnstech.dev/)
-[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/register360/webburnstech.com)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/WebburnsTech)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/webburnstech/)
-[![Twitter](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](#)
+[![Twitter](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://x.com/webburnstech/)
 [![Instagram](https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://www.instagram.com/webburnstech/)
 
 </div>
