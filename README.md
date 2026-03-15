@@ -391,7 +391,7 @@ git push origin main
 ### API Documentation
 
 For backend integration details, see:
-- Contact form endpoint: `https://webburnstech-com.onrender.com/submit-form`
+- Contact form endpoint: `https://api.webburnstech.dev/v2/`
 - Method: `POST`
 - Content-Type: `application/json`
 
@@ -465,7 +465,7 @@ Meet the minds behind WebburnsTech:
         <img src="images/vinay.jpeg" width="100px;" alt="T Vinay"/><br />
         <sub><b>T Vinay</b></sub>
       </a><br />
-      <sub>Lead Developer</sub><br />
+      <sub>Founder</sub><br />
       <a href="https://github.com/register360">GitHub</a>
     </td>
     <td align="center">
@@ -473,13 +473,13 @@ Meet the minds behind WebburnsTech:
         <img src="images/pavan.jpeg" width="100px;" alt="Pavan Nani"/><br />
         <sub><b>Pavan Nani</b></sub>
       </a><br />
-      <sub>UI/UX Designer</sub><br />
+      <sub>CEO</sub><br />
       <a href="https://www.instagram.com/pavanknani1/">Instagram</a>
     </td>
     <td align="center">
       <img src="images/sunny.jpeg" width="100px;" alt="Sunny Kiran"/><br />
       <sub><b>Sunny Kiran</b></sub><br />
-      <sub>Project Manager</sub>
+      <sub>Director</sub>
     </td>
   </tr>
 </table>
