@@ -487,7 +487,7 @@ Meet the minds behind WebburnsTech:
 ### Maintainers
 
 - **Tirukoti Vinay** ([@register360](https://github.com/register360)) - Lead Maintainer
-  - Email: vinayvivek070@gmail.com
+  - Email: vinaytirukoti@gmail.com
 - **WebburnsTech Team** - support@webburnstech.dev
 
 ---
