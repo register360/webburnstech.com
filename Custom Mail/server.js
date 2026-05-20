@@ -254,7 +254,7 @@ app.post('/api/send-email', authenticate, async (req, res) => {
       <div class="logo">${companyName}</div>
     </div>
     <div class="content">
-      ${body.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
+      ${body.includes('<') && (body.includes('>') || body.includes('</')) ? body : body.split('\n').map(line => line.trim() ? `<p>${line}</p>` : '').join('')}
     </div>
     <div class="footer">
       <div class="divider"></div>
@@ -264,36 +264,76 @@ app.post('/api/send-email', authenticate, async (req, res) => {
         <a href="mailto:unsubscribe@webburnstech.dev?subject=Unsubscribe%20Request&body=Please%20unsubscribe%20me%20from%20your%20mailing%20list.">Unsubscribe</a>
         <a href="https://www.webburnstech.dev/privacy-policy.html" target="_blank">Privacy Policy</a>
         <a href="https://www.webburnstech.dev/terms-of-service.html" target="_blank">Terms of Service</a>
-        <a href="https://www.webburnstech.dev" target="_blank">website</a>
+        <a href="https://www.webburnstech.dev" target="_blank">www.webburnstech.dev</a>
       </div>
-      <p class="footer-brand">&copy; ${new Date().getFullYear()} ${companyName}.All rights reserved.<br>2023 &reg; WebburnsTech</p>
+      <p class="footer-brand">2025 &copy; ${new Date().getFullYear()} ${companyName}. All rights reserved.<br>2023 &reg; WebburnsTech</p>
     </div>
   </div>
 </body>
 </html>`;
 
-    // Send individual emails to each recipient (Resend works better this way)
+    // Send bulk emails using Resend batch API
     const recipients = Array.isArray(to) ? to : [to];
     const results = [];
     const failed = [];
     
     console.log('Attempting to send email to:', recipients);
-    
-    for (const recipient of recipients) {
-      try {
-        const emailData = {
-          from: from || process.env.DEFAULT_FROM_EMAIL,
-          to: recipient,
-          subject,
-          html: htmlBody
-        };
+
+    // Prepare batch requests
+    const batchRequests = recipients.map(recipient => ({
+      from: from || process.env.DEFAULT_FROM_EMAIL,
+      to: recipient,
+      subject,
+      html: htmlBody
+    }));
+
+    try {
+      // Send in chunks of 100 since Resend batch API limit is 100 emails per call
+      const chunkSize = 100;
+      for (let i = 0; i < batchRequests.length; i += chunkSize) {
+        const chunk = batchRequests.slice(i, i + chunkSize);
+        const response = await resend.batch.send(chunk);
         
-        const response = await resend.emails.send(emailData);
-        console.log(`Email sent to ${recipient}:`, response.data);
-        results.push({ email: recipient, messageId: response.data.id, status: 'sent' });
-      } catch (err) {
-        console.error(`Failed to send to ${recipient}:`, err.message);
-        failed.push({ email: recipient, error: err.message });
+        if (response.error) {
+          console.error('Resend batch send error:', response.error);
+          throw response.error;
+        }
+
+        if (response.data && Array.isArray(response.data)) {
+          response.data.forEach((item, index) => {
+            const actualIndex = i + index;
+            if (item.error) {
+              failed.push({ email: recipients[actualIndex], error: item.error.message || 'Failed' });
+            } else {
+              results.push({ email: recipients[actualIndex], messageId: item.id, status: 'sent' });
+            }
+          });
+        } else {
+          // Fallback in case response.data is not an array (but response succeeded)
+          chunk.forEach((item, index) => {
+            const actualIndex = i + index;
+            results.push({ email: recipients[actualIndex], messageId: response.data?.id || 'batch-send', status: 'sent' });
+          });
+        }
+      }
+    } catch (batchErr) {
+      console.warn('Batch send failed, falling back to individual sending:', batchErr.message);
+      // Fallback: Individual sends
+      for (const recipient of recipients) {
+        try {
+          const emailData = {
+            from: from || process.env.DEFAULT_FROM_EMAIL,
+            to: recipient,
+            subject,
+            html: htmlBody
+          };
+          const res = await resend.emails.send(emailData);
+          results.push({ email: recipient, messageId: res.data?.id || res.id, status: 'sent' });
+          console.log(`Email sent to ${recipient}:`, res.data || res);
+        } catch (err) {
+          console.error(`Failed to send to ${recipient}:`, err.message);
+          failed.push({ email: recipient, error: err.message });
+        }
       }
     }
     
