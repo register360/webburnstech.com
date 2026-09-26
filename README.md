@@ -9,7 +9,7 @@
 <p>
   <a href="https://www.webburnstech.dev"><img src="https://img.shields.io/badge/Website-webburnstech.dev-6c63ff?style=flat-square&logo=google-chrome&logoColor=white" alt="Website" /></a>
   <a href="https://github.com/WebburnsTech"><img src="https://img.shields.io/badge/Org-WebburnsTech-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub Org" /></a>
-  <a href="https://www.linkedin.com/in/webburnstech"><img src="https://img.shields.io/badge/LinkedIn-webburnstech-0077B5?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
+  <a href="https://linkedin.com/company/webburnstech"><img src="https://img.shields.io/badge/LinkedIn-webburnstech-0077B5?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
   <a href="https://x.com/webburnstech"><img src="https://img.shields.io/badge/X-%40webburnstech-000000?style=flat-square&logo=x&logoColor=white" alt="X (Twitter)" /></a>
   <a href="https://www.instagram.com/webburnstech"><img src="https://img.shields.io/badge/Instagram-webburnstech-E4405F?style=flat-square&logo=instagram&logoColor=white" alt="Instagram" /></a>
   <a href="https://www.youtube.com/@WebburnsTech"><img src="https://img.shields.io/badge/YouTube-WebburnsTech-FF0000?style=flat-square&logo=youtube&logoColor=white" alt="YouTube" /></a>
@@ -252,7 +252,7 @@ See [LICENSE](https://github.com/register360/webburnstech.com/blob/main/LICENSE)
 
 | | | | | | |
 |:---:|:---:|:---:|:---:|:---:|:---:|
-| [🌐 Website](https://www.webburnstech.dev) | [🐙 GitHub Org](https://github.com/WebburnsTech) | [💼 LinkedIn](https://www.linkedin.com/in/webburnstech) | [🐦 X / Twitter](https://x.com/webburnstech) | [📷 Instagram](https://www.instagram.com/webburnstech) | [▶️ YouTube](https://www.youtube.com/@WebburnsTech) |
+| [🌐 Website](https://www.webburnstech.dev) | [🐙 GitHub Org](https://github.com/WebburnsTech) | [💼 LinkedIn](https://linkedin.com/company/webburnstech) | [🐦 X / Twitter](https://x.com/webburnstech) | [📷 Instagram](https://www.instagram.com/webburnstech) | [▶️ YouTube](https://www.youtube.com/@WebburnsTech) |
 
 **📍 Hyderabad, Telangana 500074, India**
 
