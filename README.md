@@ -1,35 +1,60 @@
 <div align="center">
+<a href="https://donate.webburnstech.dev">
+  <img src="https://img.shields.io/badge/💛_Support_WebburnsTech-Donate_Now-f69220?style=for-the-badge" alt="Donate" />
+</a>
 
-<img src="https://avatars.githubusercontent.com/u/234434361?s=200&v=4" width="120" alt="WebburnsTech Logo" />
+Donations power: **Webburns AI** · **Webburns Anime** · **Webburns Learn** · **Mock Tests** · **Webburns Chat** · **Webburns TV** · **Webburns FUMS**
 
-<h1>webburnshub</h1>
+---
 
-<p><strong>Official release hub for every WebburnsTech product, package, and platform.</strong></p>
+## License
 
-<p>
-  <a href="https://www.webburnstech.dev"><img src="https://img.shields.io/badge/Website-webburnstech.dev-6c63ff?style=flat-square&logo=google-chrome&logoColor=white" alt="Website" /></a>
-  <a href="https://github.com/WebburnsTech"><img src="https://img.shields.io/badge/Org-WebburnsTech-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub Org" /></a>
-  <a href="https://www.linkedin.com/in/webburnstech"><img src="https://img.shields.io/badge/LinkedIn-webburnstech-0077B5?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
-  <a href="https://x.com/webburnstech"><img src="https://img.shields.io/badge/X-%40webburnstech-000000?style=flat-square&logo=x&logoColor=white" alt="X (Twitter)" /></a>
-  <a href="https://www.instagram.com/webburnstech"><img src="https://img.shields.io/badge/Instagram-webburnstech-E4405F?style=flat-square&logo=instagram&logoColor=white" alt="Instagram" /></a>
-  <a href="https://www.youtube.com/@WebburnsTech"><img src="https://img.shields.io/badge/YouTube-WebburnsTech-FF0000?style=flat-square&logo=youtube&logoColor=white" alt="YouTube" /></a>
-</p>
+All public repositories released through this hub are licensed under the **MIT License** unless otherwise stated.
 
-<p>
-  <a href="mailto:contact@webburnstech.dev"><img src="https://img.shields.io/badge/Email-contact%40webburnstech.dev-D44638?style=flat-square&logo=gmail&logoColor=white" alt="Email" /></a>
-  <a href="https://donate.webburnstech.dev"><img src="https://img.shields.io/badge/Support-Donate-f69220?style=flat-square&logo=cashapp&logoColor=white" alt="Donate" /></a>
-</p>
+```
+MIT License
 
-<br />
+Copyright (c) 2025 WebburnsTech (Webburns Technologies)
 
-> *"Technology is not just about building tools — it's about building experiences."*
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+See [LICENSE](https://github.com/register360/webburnstech.com/blob/main/LICENSE) for full terms.
+
+---
+
+## Connect with us
+
+<div align="center">
+
+| | | | | | |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| [🌐 Website](https://www.webburnstech.dev) | [🐙 GitHub Org](https://github.com/WebburnsTech) | [💼 LinkedIn](https://www.linkedin.com/in/webburnstech) | [🐦 X / Twitter](https://x.com/webburnstech) | [📷 Instagram](https://www.instagram.com/webburnstech) | [▶️ YouTube](https://www.youtube.com/@WebburnsTech) |
+
+**📍 Hyderabad, Telangana 500074, India**
 
 </div>
 
 ---
 
-## What is webburnshub?
+<div align="center">
 
-**webburnshub** is the official public release hub of [WebburnsTech (Webburns Technologies)](https://github.com/WebburnsTech) — a digital solutions company based in Hyderabad, India.
+<sub>Built with ❤️ by the <a href="https://www.webburnstech.dev">WebburnsTech</a> team — Building the future of the web, today.</sub>
 
-Every product, package, SDK, CLI tool, and platform released by WebburnsTech lives here. This is where you find stable releases, changelogs, versioned packages, and the entry point to the entire WebburnsTech ecosystem — from AI developer tools to open-source learning platforms.
+</div>
