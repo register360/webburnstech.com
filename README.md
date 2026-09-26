@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://avatars.githubusercontent.com/u/234434361?s=200&v=4" width="120" alt="WebburnsTech Logo" />
+<img src="https://avatars.githubusercontent.com/u/295280306?s=200&v=4" width="120" alt="WebburnsTech Logo" />
 
 <h1>webburnshub</h1>
 
